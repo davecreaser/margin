@@ -114,8 +114,15 @@ def report(model: str, results: list[dict[str, Any]]) -> dict[str, Any]:
             "displayed_failed_citations": sum(r["displayed_failed"] for r in results),
         }
     )
+    for name in sorted({r["set"] for r in results}):  # a long book is where placement gives up
+        rs = [r for r in results if r["set"] == name]
+        events_in_set = sum(r["placed"] + r["unplaced"] for r in rs)
+        scores[f"not_placed_rate_{name}"] = (
+            round(sum(r["unplaced"] for r in rs) / events_in_set, 3) if events_in_set else None
+        )
     for k in ("not_placed_rate", "events_per_1000_words", "event_quote_failure_rate",
-              "time_words_failed", "ungrounded_placements", "displayed_failed_citations"):  # fmt: skip
+              "time_words_failed", "ungrounded_placements", "displayed_failed_citations",
+              "not_placed_rate_novella", "not_placed_rate_demo"):  # fmt: skip
         print(f"  {k:<28} {scores[k]}")
     return scores
 

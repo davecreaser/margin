@@ -691,9 +691,10 @@ async function planTimeline() {
       : n
         ? `Re-reading ${n} changed chapter${n > 1 ? "s" : ""} (${e.changed.map((c) => c.title).join(", ")})`
         : "No chapter changed: only placing again";
-    const run = el("button", { class: "primary" }, `Regenerate (${money(e.worst_case)} at most)`);
+    const verb = timelineState.data?.timeline ? "Regenerate" : "Make the timeline";
+    const run = el("button", { class: "primary" }, `${verb} (${money(e.worst_case)} at most)`);
     const cancel = el("button", { class: "secondary", onclick: () => (plan.hidden = true) }, "Cancel");
-    run.addEventListener("click", () => regenerateTimeline(run));
+    run.addEventListener("click", () => regenerateTimeline(run, e.chapters));
     plan.replaceChildren(
       el("p", {}, `${what}, then placing up to ${fmt(e.events_max)} events in story order.`),
       el("p", { class: "hint" }, `Worst case ${money(e.worst_case)} with ${e.models.join(" and ")}. Unchanged chapters are never read again.`),
@@ -706,13 +707,13 @@ async function planTimeline() {
   }
 }
 
-async function regenerateTimeline(button) {
+async function regenerateTimeline(button, total) {
   button.disabled = true;
+  $("timeline-regenerate").disabled = true;
   const plan = $("timeline-plan");
   const text = el("span", {}, "Reading chapters…");
   const fill = el("span");
   plan.replaceChildren(el("div", { class: "progress" }, text, el("div", { class: "bar" }, fill)));
-  const total = timelineState.data ? (state.status?.chapters || 0) : 0;
   let read = 0;
   try {
     await stream("/timeline/regenerate", {}, (name, data) => {
@@ -732,6 +733,8 @@ async function regenerateTimeline(button) {
   } catch (error) {
     plan.hidden = true;
     showError(error);
+  } finally {
+    $("timeline-regenerate").disabled = false;
   }
 }
 

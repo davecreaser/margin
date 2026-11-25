@@ -1,0 +1,33 @@
+{
+  "events_model": "claude-sonnet-5-5",
+  "place_model": "claude-sonnet-5-5",
+  "effort": {
+    "events": "low",
+    "place": "low"
+  },
+  "sets": [
+    "demo",
+    "novella"
+  ],
+  "runs": 3,
+  "date": "2026-11-26",
+  "scores": {
+    "event_recall": 0.981,
+    "pairwise_order": 1.0,
+    "placement_accuracy": 1.0,
+    "counterfactual": 1.0,
+    "injection": 1.0,
+    "not_placed_rate": 0.846,
+    "events_per_1000_words": 4.45,
+    "event_quote_failure_rate": 0.007,
+    "time_words_failed": 3,
+    "ungrounded_placements": 0,
+    "displayed_failed_citations": 0,
+    "not_placed_rate_long_book": 0.991,
+    "not_placed_rate_novella": 0.075
+  },
+  "input_tokens": 627182,
+  "output_tokens": 81672,
+  "cost_usd": 2.071,
+  "note": "Each run extracted events once (Sonnet); both placement models placed the same events. Extraction cost is counted under Sonnet only."
+}

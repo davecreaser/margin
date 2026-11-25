@@ -70,7 +70,7 @@ class Settings(BaseSettings):
     events_effort: str = "low"
     events_max_tokens: int = 6000
     event_cap: int = 25
-    place_model: str = "claude-sonnet-5-5"
+    place_model: str = "claude-opus-5-5"  # chosen by eval: Sonnet left 99% of a long book unplaced
     place_effort: str = "low"
     place_max_tokens: int = 64000  # the ceiling; each call asks for room for its events
 

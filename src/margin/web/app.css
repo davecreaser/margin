@@ -230,7 +230,7 @@ summary { cursor: pointer; color: var(--muted); font-size: 14px; padding: 6px 0;
 .tl-top { display: flex; gap: 10px; align-items: center; margin-bottom: 6px; }
 .chip { font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); border-radius: 999px; padding: 2px 9px; }
 .tl-text { font: 600 16px/1.45 var(--serif); margin: 0 0 6px; }
-.tl-quote { display: block; text-align: left; background: none; border: 0; padding: 0; color: var(--muted); font-size: 15px; cursor: pointer; }
+.tl-quote { display: block; width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: left; background: none; border: 0; padding: 0; color: var(--muted); font-size: 15px; cursor: pointer; }
 button.tl-quote:hover { color: var(--ink); text-decoration: underline dotted; }
 .tl-basis { margin: 8px 0 0; font-size: 13px; color: var(--faint); }
 .tl-basis q { color: var(--muted); }

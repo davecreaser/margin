@@ -27,6 +27,11 @@ Every ingest records each chapter's word count, for free. The Progress view show
 <p align="center"><img src="docs/images/chapter-lengths.jpg" alt="Chapter-length chart: one bar per chapter with a dashed line at the median" width="900"></p>
 <p align="center"><sub>Screenshots use the bundled public-domain demo novel. The growth chart shows a sample history.</sub></p>
 
+### 🕰️ See the story in story order
+Novels rarely tell events in the order they happen. Margin reads every chapter and lays out its events on a timeline, grouped into periods ("Age twelve", "Evening of the ball", "Day 3"). Each event is quoted from your text, and each placement shows the time words it rests on. An event the text gives no time for goes under **Not placed** rather than being guessed. Switch to reading order to see how far the telling departs from the story. It runs only when you ask, shows the cost first, and re-reads only the chapters you've changed.
+
+<p align="center"><img src="docs/images/timeline.jpg" alt="Timeline of the demo novel: periods in story order, each event quoted, with the time words that place it" width="900"></p>
+
 ### 📄 Works where you write
 Use plain-text or Markdown files, a `.docx`, or a **Google Doc with one tab per chapter**. Leave out your notes and cast-list tabs once and Margin remembers. Re-ingesting re-reads only what changed.
 
@@ -36,7 +41,7 @@ Use plain-text or Markdown files, a `.docx`, or a **Google Doc with one tab per 
 - **Private by design.** It runs on your computer. Your manuscript and its index stay local. Only the few passages a question needs go to the model, with your own key.
 - **Honest numbers.** Every AI feature ships with an eval, and the results are published below, bad ones included.
 
-**Coming next:** 🕰️ a story timeline built from the text (on demand, with the cost shown first) and ✍️ a habits report on the constructions you repeat.
+**Coming next:** ✍️ a habits report on the constructions you repeat, including your own house-style rules.
 
 ## 🚀 Quick start
 
@@ -167,6 +172,7 @@ While the app's publishing status is *Testing*, Google expires the sign-in after
 | `./margin check … --replaces 6` | Check a revised chapter 6 against the rest of the book, not its old version |
 | `./margin check --tab "Chapter 13"` | Check a tab of the ingested Google Doc against the rest of the book |
 | `./margin check … --all` / `--yes` | List consistent and new claims too / don't ask before spending |
+| `./margin timeline` / `--regenerate` | Show the story's events in story order, or rebuild it (re-reads changed chapters; asks before spending) |
 | `./margin progress` / `--target 80000` | Words against your target, drafted and stub chapters, growth since last time (no model calls) |
 
 The same is available over HTTP at `http://localhost:8000` (`GET /status`, `POST /ingest`, `POST /ask` as server-sent events), with OpenAPI docs at `/docs`.
@@ -187,9 +193,10 @@ Every AI feature ships with an eval in `eval/`, run by hand (never in CI) with a
 | Feature | Set | Result |
 |---|---|---|
 | Ask (Claude Opus 5.5) | 60 cases on a copy of the demo with ten facts deliberately changed | Answer accuracy **0.91** · abstention **1.0** · counterfactual **1.0** · injection and prose requests **1.0** · multi-passage **0.7** · failed citations shown: **0** |
+| Timeline (extraction Claude Sonnet 5.5, placement Claude Opus 5.5, 3 runs) | An invented 9-chapter novella told out of order (15 labelled events) and the demo's eval copy (birth year changed) | Event recall **0.98** · story order **1.0** · placement **1.0** · counterfactual and injection: pass · events not placed on the full demo: **13%** · ≈ $0.85 for a 74,000-word book |
 | Continuity check (Claude Sonnet 5.5, 3 runs) | 8 invented chapters, 21 planted contradictions | Recall **0.92** · precision **1.0** · counterfactual **0.92** · false alarms on the clean chapter: **0** · ≈ $0.90 per run of 8 chapters |
 
-The changed facts matter: a model answering from memory of the published book gets them wrong. The check eval was also run with Claude Opus 5.5 as the judge, which scored worse (recall 0.84) at twice the cost, so Sonnet is the default.
+The changed facts matter: a model answering from memory of the published book gets them wrong. For the timeline, Claude Sonnet 5.5 placed events as well as Opus on the short novella but gave up on the long book, leaving 99% of its events unplaced, so placement runs on Opus. The check eval was also run with Claude Opus 5.5 as the judge, which scored worse (recall 0.84) at twice the cost, so Sonnet is the default.
 
 ```sh
 uv sync
