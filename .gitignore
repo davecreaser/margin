@@ -13,3 +13,5 @@ __pycache__/
 eval/runs/
 # Never commit a private manuscript.
 private/
+# Your own manuscripts, mounted read-only into the service.
+manuscripts/

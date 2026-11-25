@@ -1,0 +1,6 @@
+#!/bin/sh
+# Run the margin CLI inside the running service: ./margin status, ./margin ask "…"
+# Manuscripts go in ./manuscripts/ (mounted read-only), e.g. ./margin ingest manuscripts/my-book
+cd "$(dirname "$0")" || exit 1
+if [ -t 1 ]; then tty=""; else tty="-T"; fi
+exec docker compose exec $tty margin margin "$@"
