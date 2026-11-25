@@ -143,7 +143,7 @@ def ingest_google(
     all_tabs = gdocs.tabs(docs.fetch(doc))
     left_out = [t.title for t in all_tabs if gdocs.excluded(t.title, patterns)]
     used = [t for t in all_tabs if not gdocs.excluded(t.title, patterns) and t.text.strip()]
-    manuscript = ms.from_tabs(title, [(t.title, t.lines) for t in used])  # may raise NoChapters
+    manuscript, by_tab = ms.from_tabs(title, [(t.id, t.title, t.lines) for t in used])
     old = state.get("hashes", {})
     reused = [t.title for t in used if old.get(t.id) == t.hash]
     read = [t.title for t in used if old.get(t.id) != t.hash]
@@ -159,6 +159,7 @@ def ingest_google(
             "excluded": left_out,
             "hashes": {t.id: t.hash for t in used},
             "tabs": {t.id: t.title for t in used},
+            "chapters": by_tab,
         },
     )
     return IngestResult(
@@ -192,8 +193,9 @@ def tab_list(link: str, *, docs: Docs, data_dir: Path) -> dict[str, Any]:
     }
 
 
-def load_tab(name: str, *, docs: Docs, data_dir: Path) -> tuple[ms.Chapter, str]:
-    """A tab of the ingested Google Doc, fetched fresh, as one chapter to check."""
+def load_tab(name: str, *, docs: Docs, data_dir: Path) -> tuple[ms.Chapter, str, list[int]]:
+    """A tab of the ingested Google Doc, fetched fresh, as one chapter to check, with the
+    indexed chapters it became at the last ingest (empty if it wasn't indexed)."""
     current = current_doc(data_dir)
     if current is None:
         raise gdocs.GoogleError("No Google Doc has been ingested: ./margin ingest <link>")
@@ -207,4 +209,5 @@ def load_tab(name: str, *, docs: Docs, data_dir: Path) -> tuple[ms.Chapter, str]
     tab = match[0]
     chapter = ms.chapter_from_lines(tab.title, tab.lines)
     chapter.title = tab.title
-    return chapter, current["title"]
+    indexed = _load_state(data_dir, current["doc"]).get("chapters", {}).get(tab.id, [])
+    return chapter, current["title"], list(indexed)

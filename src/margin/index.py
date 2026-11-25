@@ -40,18 +40,18 @@ class IndexStats:
 
 class PassageStore(Protocol):
     def bm25(
-        self, question: str, k: int, exclude_chapter: int | None = None
+        self, question: str, k: int, exclude_chapter: int | list[int] | None = None
     ) -> list[tuple[Passage, float]]: ...
 
     def knn(
-        self, vector: list[float], k: int, exclude_chapter: int | None = None
+        self, vector: list[float], k: int, exclude_chapter: int | list[int] | None = None
     ) -> list[tuple[Passage, float]]: ...
 
     def stats(self) -> IndexStats: ...
 
 
-def _not_chapter(chapter: int) -> dict[str, Any]:
-    return {"term": {"chapter": chapter}}
+def _not_chapter(chapter: int | list[int]) -> dict[str, Any]:
+    return {"terms": {"chapter": chapter if isinstance(chapter, list) else [chapter]}}
 
 
 def _passage(source: dict[str, Any]) -> Passage:
@@ -165,7 +165,7 @@ class ElasticIndex:
         return [(_passage(h["_source"]), float(h["_score"])) for h in response["hits"]["hits"]]
 
     def bm25(
-        self, question: str, k: int, exclude_chapter: int | None = None
+        self, question: str, k: int, exclude_chapter: int | list[int] | None = None
     ) -> list[tuple[Passage, float]]:
         query: dict[str, Any] = {"match": {"text": question}}
         if exclude_chapter is not None:
@@ -192,7 +192,7 @@ class ElasticIndex:
         return int(mapping[indices[0]]["mappings"]["properties"]["vector"]["dims"])
 
     def knn(
-        self, vector: list[float], k: int, exclude_chapter: int | None = None
+        self, vector: list[float], k: int, exclude_chapter: int | list[int] | None = None
     ) -> list[tuple[Passage, float]]:
         dims = self.dimensions()
         if dims is not None and dims != len(vector):

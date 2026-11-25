@@ -223,11 +223,12 @@ def check(
     s = _request("GET", "/status")
     if s["passages"] == 0:
         _fail("Nothing is indexed yet: run ./margin ingest --demo, or ./margin ingest <path>")
+    leave_out: int | list[int] | None = replaces
     if tab is not None:
-        t = _request("GET", "/google/tab", params={"name": tab})
+        t = _request("POST", "/google/tab", json={"name": tab})
         chapter = Chapter(0, t["title"], t["paragraphs"])
-        if replaces is None and t["replaces"] is not None:
-            replaces = t["replaces"]
+        if replaces is None and t["replaces"]:
+            leave_out = t["replaces"]
     else:
         assert path is not None
         if not path.is_file():
@@ -235,9 +236,11 @@ def check(
         chapter = load_chapter(path)
     if not chapter.paragraphs:
         _fail(f"{chapter.title} has no text to check")
+    shown = ", ".join(map(str, leave_out)) if isinstance(leave_out, list) else leave_out
+    plural = "s" if isinstance(leave_out, list) and len(leave_out) > 1 else ""
     against = (
-        f"the rest of {s['manuscript']} (it replaces chapter {replaces})"
-        if replaces is not None
+        f"the rest of {s['manuscript']} (it replaces chapter{plural} {shown})"
+        if leave_out is not None
         else f"{s['manuscript']}: {s['chapters']} chapters, {s['passages']} passages"
     )
     out.print(
@@ -256,7 +259,7 @@ def check(
     body = {
         "title": chapter.title,
         "paragraphs": chapter.paragraphs,
-        "replaces": replaces,
+        "replaces": leave_out,
         "debug": debug,
     }
     listed: dict[str, list[dict[str, Any]]] = {"consistent": [], "new": [], "not_checked": []}
@@ -374,12 +377,13 @@ def login() -> None:
     """Give Margin read-only access to your Google Docs."""
     import time
 
+    before = _request("GET", "/google/status")["signed_in_at"]
     url = _request("GET", "/google/login")["url"]
     out.print("Open this link to give Margin read-only access to your Google Docs:")
     out.print(url, markup=False, soft_wrap=True)
     with err.status("Waiting for Google…"):
         for _ in range(300):
-            if _request("GET", "/google/status")["signed_in"]:
+            if _request("GET", "/google/status")["signed_in_at"] not in (None, before):
                 out.print("[green]Signed in.[/green]")
                 return
             time.sleep(1)
@@ -389,8 +393,13 @@ def login() -> None:
 @google.command()
 def logout() -> None:
     """Forget the Google token and revoke it with Google."""
-    _request("POST", "/google/logout")
-    out.print("Signed out; Margin's access to your Google Docs is revoked.")
+    if _request("POST", "/google/logout")["revoked"]:
+        out.print("Signed out; Margin's access to your Google Docs is revoked.")
+    else:
+        out.print(
+            "Token deleted here, but Google didn't confirm the revoke: remove Margin's access "
+            "at https://myaccount.google.com/permissions"
+        )
 
 
 @google.command("status")

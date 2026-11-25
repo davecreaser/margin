@@ -191,15 +191,15 @@ class CheckRequest(BaseModel):
     title: str = ""
     paragraphs: list[str] = []
     tab: str | None = None  # a tab of the ingested Google Doc, in place of title and text
-    replaces: int | None = None
+    replaces: int | list[int] | None = None
     debug: bool = False
 
 
 def _tab_chapter(name: str) -> dict[str, Any]:
-    chapter, doc_title = ingest_mod.load_tab(name, docs=google_docs(), data_dir=settings().data_dir)
-    stats = index().stats()
-    same = [c["number"] for c in stats.chapters if c["title"] == chapter.title]
-    replaces = same[0] if stats.manuscript == doc_title and len(same) == 1 else None
+    chapter, doc_title, indexed = ingest_mod.load_tab(
+        name, docs=google_docs(), data_dir=settings().data_dir
+    )
+    replaces = indexed if index().stats().manuscript == doc_title and indexed else None
     return {
         "title": chapter.title,
         "paragraphs": chapter.paragraphs,
@@ -214,6 +214,7 @@ def google_status() -> dict[str, Any]:
     return {
         "configured": auth.oauth.configured,
         "signed_in": auth.signed_in,
+        "signed_in_at": auth.signed_in_at,
         "current": ingest_mod.current_doc(settings().data_dir),
     }
 
@@ -236,20 +237,27 @@ def google_callback(code: str = "", state: str = "", error: str = "") -> Any:
 
 @app.post("/google/logout")
 def google_logout() -> dict[str, bool]:
-    google_auth().logout()
-    return {"signed_in": False}
+    return {"signed_in": False, "revoked": google_auth().logout()}
 
 
-@app.get("/google/tabs")
-def google_tabs(doc: str) -> dict[str, Any]:
+class TabsRequest(BaseModel):
+    doc: str
+
+
+@app.post("/google/tabs")
+def google_tabs(request: TabsRequest) -> dict[str, Any]:
     """A document's tabs, with which are excluded, so a client can choose before ingesting."""
-    return ingest_mod.tab_list(doc, docs=google_docs(), data_dir=settings().data_dir)
+    return ingest_mod.tab_list(request.doc, docs=google_docs(), data_dir=settings().data_dir)
 
 
-@app.get("/google/tab")
-def google_tab(name: str) -> dict[str, Any]:
-    """One tab of the ingested document as a chapter to check, with the chapter it replaces."""
-    return _tab_chapter(name)
+class TabRequest(BaseModel):
+    name: str
+
+
+@app.post("/google/tab")
+def google_tab(request: TabRequest) -> dict[str, Any]:
+    """One tab of the ingested document as a chapter to check, with the chapters it replaces."""
+    return _tab_chapter(request.name)
 
 
 @app.post("/check")

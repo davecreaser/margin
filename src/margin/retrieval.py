@@ -44,7 +44,7 @@ class Retriever:
         question: str,
         mode: Mode = "hybrid",
         k: int | None = None,
-        exclude_chapter: int | None = None,
+        exclude_chapter: int | list[int] | None = None,
     ) -> list[Retrieved]:
         k = k or self.top_k
         bm25 = self.store.bm25(question, self.candidates, exclude_chapter) if mode != "knn" else []

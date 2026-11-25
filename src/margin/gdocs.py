@@ -48,6 +48,16 @@ class SignInNeededError(GoogleError):
         super().__init__("Sign in to Google first: ./margin google login")
 
 
+class BadClientError(GoogleError):
+    status = 412
+
+    def __init__(self) -> None:
+        super().__init__(
+            "Google rejected the OAuth client: check GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET "
+            "in .env, then docker compose up -d"
+        )
+
+
 class NoAccessError(GoogleError):
     status = 403
 
@@ -247,15 +257,23 @@ class GoogleAuth:
         self._save(fresh)
         return str(fresh["access_token"])
 
-    def logout(self) -> None:
+    @property
+    def signed_in_at(self) -> float | None:
+        return self.path.stat().st_mtime if self.path.exists() else None
+
+    def logout(self) -> bool:
+        """Delete the token, and revoke it with Google. True if Google confirmed the revoke."""
         if not self.path.exists():
-            return
+            return True
         token = json.loads(self.path.read_text())
         self.path.unlink()
         revoke = token.get("refresh_token") or token.get("access_token")
-        if revoke:
-            with contextlib.suppress(httpx.HTTPError):  # deleted locally either way
-                self.http.post(REVOKE_URL, data={"token": revoke})
+        if not revoke:
+            return False
+        try:
+            return self.http.post(REVOKE_URL, data={"token": revoke}).status_code == 200
+        except httpx.HTTPError:
+            return False
 
     def _post(self, url: str, data: dict[str, Any]) -> dict[str, Any]:
         try:
@@ -263,6 +281,11 @@ class GoogleAuth:
         except httpx.HTTPError as e:
             raise GoogleUnreachableError() from e
         if r.status_code in (400, 401):
+            error = ""
+            with contextlib.suppress(ValueError):
+                error = str(r.json().get("error", ""))
+            if error in ("invalid_client", "unauthorized_client"):
+                raise BadClientError()
             raise SignInNeededError()
         if r.status_code >= 400:
             raise GoogleUnreachableError()

@@ -211,18 +211,39 @@ def chapter_from_lines(title: str, lines: list[str]) -> Chapter:
 def chapters_from_tab(title: str, lines: list[str]) -> list[Chapter]:
     """A Google Docs tab is one chapter titled by the tab, unless it holds several chapter
     headings, when it is split by them like a single file."""
-    split = [c for c in _from_headings(lines) if c.paragraphs]
-    if len(split) > 1:
-        return split
+    starts = [i for i, line in enumerate(lines) if _chapter_heading(line)]
+    if len(starts) > 1:
+        out = []
+        if (opening := chapter_from_lines(title, lines[: starts[0]])).paragraphs:
+            out.append(opening)
+        for a, b in zip(starts, [*starts[1:], len(lines)], strict=True):
+            out.append(chapter_from_lines(title, lines[a:b]))
+        return out
     chapter = chapter_from_lines(title, lines)
     chapter.title = title  # the tab's name is what the author sees in Docs
     return [chapter]
 
 
-def from_tabs(name: str, tabs: list[tuple[str, list[str]]]) -> Manuscript:
-    chapters = [c for title, lines in tabs for c in chapters_from_tab(title, lines) if c.paragraphs]
+def _chapter_heading(line: str) -> bool:
+    """A "Chapter N" heading, as a plain line or a Docs heading; scene subheadings aren't."""
+    stripped = line.strip()
+    if m := MARKDOWN_HEADING.match(stripped):
+        stripped = m.group("title").strip()
+    return _chapter_line(stripped)
+
+
+def from_tabs(
+    name: str, tabs: list[tuple[str, str, list[str]]]
+) -> tuple[Manuscript, dict[str, list[int]]]:
+    """The manuscript, and which chapter numbers each tab (by id) became."""
+    chapters: list[Chapter] = []
+    by_tab: dict[str, list[int]] = {}
+    for tab_id, title, lines in tabs:
+        for c in chapters_from_tab(title, lines):
+            if c.paragraphs:
+                chapters.append(c)
+                c.number = len(chapters)
+                by_tab.setdefault(tab_id, []).append(c.number)
     if not chapters:
         raise NoChaptersError(name)
-    for number, chapter in enumerate(chapters, 1):
-        chapter.number = number
-    return Manuscript(name=name, chapters=chapters)
+    return Manuscript(name=name, chapters=chapters), by_tab

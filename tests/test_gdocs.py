@@ -192,8 +192,10 @@ def test_a_document_with_only_excluded_tabs_has_no_chapters(tmp_path: Path) -> N
 def test_load_tab_and_tab_list(tmp_path: Path) -> None:
     docs = FakeDocs(document())
     _ingest(docs, FakeIndex(), CountingEmbedder(), tmp_path, ["Notes*"])
-    chapter, title = ing.load_tab("chapter 1", docs=docs, data_dir=tmp_path)
-    assert title == "The Lantern Road" and chapter.title == "Chapter 1"
+    chapter, title, indexed = ing.load_tab("chapter 1", docs=docs, data_dir=tmp_path)
+    assert title == "The Lantern Road" and chapter.title == "Chapter 1" and indexed == [1]
+    _, _, split = ing.load_tab("Part Two", docs=docs, data_dir=tmp_path)
+    assert split == [3, 4]  # a split tab leaves out every chapter it became
     assert chapter.paragraphs[0] == "The ferry left at nine."
     with pytest.raises(gdocs.GoogleError, match="No tab called Chapter 9. Tabs: Notes, Chapter 1"):
         ing.load_tab("Chapter 9", docs=docs, data_dir=tmp_path)
@@ -273,8 +275,55 @@ def test_logout_deletes_and_revokes(tmp_path: Path) -> None:
 
     auth = _auth(tmp_path, handler)
     auth.path.write_text(json.dumps({"access_token": "a", "refresh_token": "r", "expires_at": 0}))
-    auth.logout()
+    assert auth.logout() is True
     assert not auth.path.exists() and urls == [gdocs.REVOKE_URL]
+
+
+def test_logout_says_when_google_did_not_confirm_the_revoke(tmp_path: Path) -> None:
+    auth = _auth(tmp_path, lambda r: httpx.Response(503))
+    auth.path.write_text(json.dumps({"access_token": "a", "refresh_token": "r", "expires_at": 0}))
+    assert auth.logout() is False and not auth.path.exists()
+
+
+def test_a_wrong_client_secret_is_named_and_keeps_the_token(tmp_path: Path) -> None:
+    auth = _auth(tmp_path, lambda r: httpx.Response(401, json={"error": "invalid_client"}))
+    auth.path.write_text(json.dumps({"access_token": "a", "refresh_token": "r", "expires_at": 0}))
+    with pytest.raises(gdocs.BadClientError, match="GOOGLE_CLIENT_SECRET"):
+        auth.access_token()
+    assert auth.path.exists()
+
+
+def test_scene_subheadings_never_split_a_tab_or_drop_its_opening() -> None:
+    from margin.manuscript import chapters_from_tab
+
+    lines = [
+        "# Chapter 13",
+        "",
+        "The opening.",
+        "",
+        "## Morning",
+        "",
+        "Dawn.",
+        "",
+        "## Night",
+        "",
+        "Dark.",
+    ]
+    chapters = chapters_from_tab("Chapter 13", lines)
+    assert len(chapters) == 1 and chapters[0].title == "Chapter 13"
+    assert chapters[0].paragraphs == ["The opening.", "Morning", "Dawn.", "Night", "Dark."]
+
+
+def test_text_before_the_first_chapter_heading_stays_in_the_tab() -> None:
+    from margin.manuscript import chapters_from_tab
+
+    lines = ["A prologue line.", "", "Chapter 1", "", "One.", "", "Chapter 2", "", "Two."]
+    titles = [(c.title, c.paragraphs) for c in chapters_from_tab("Book", lines)]
+    assert titles == [
+        ("Book", ["A prologue line."]),
+        ("Chapter 1", ["One."]),
+        ("Chapter 2", ["Two."]),
+    ]
 
 
 @pytest.mark.parametrize(

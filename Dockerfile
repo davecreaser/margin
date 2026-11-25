@@ -19,4 +19,5 @@ RUN HF_HUB_OFFLINE=0 python -c "from margin.embedding import FastEmbedder; \
 # Manuscripts are mounted read-only under /work; relative paths match the host's.
 WORKDIR /work
 EXPOSE 8000
-CMD ["uvicorn", "margin.api:app", "--host", "0.0.0.0", "--port", "8000"]
+# No access log: request URLs can carry tab names and the Google sign-in code.
+CMD ["uvicorn", "margin.api:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
