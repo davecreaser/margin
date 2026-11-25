@@ -5,6 +5,7 @@ The model for each reasoning step is set here, and chosen by the evals (ADR 0006
 
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEMO_DIR = Path(__file__).parent / "demo" / "the-card"
@@ -24,6 +25,13 @@ class Settings(BaseSettings):
     es_url: str = "http://localhost:9200"
     index: str = "margin-passages"
     service_url: str = "http://localhost:8000"
+    # Token, Google Docs state and the passage-vector cache. /data (a volume) in Docker.
+    data_dir: Path = Path(".margin")
+
+    # Google Docs (spec 0003): the author's own OAuth client, from .env.
+    google_client_id: str | None = Field(default=None, validation_alias="GOOGLE_CLIENT_ID")
+    google_client_secret: str | None = Field(default=None, validation_alias="GOOGLE_CLIENT_SECRET")
+    google_redirect_uri: str = "http://localhost:8000/google/callback"
 
     embed_model: str = "BAAI/bge-small-en-v1.5"
     embed_cache: str | None = None

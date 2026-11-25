@@ -15,3 +15,5 @@ eval/runs/
 private/
 # Your own manuscripts, mounted read-only into the service.
 manuscripts/
+# Local data outside Docker: Google token, Docs state, vector cache.
+.margin/

@@ -22,8 +22,10 @@ services:
         required: false
     environment:
       - MARGIN_ES_URL=http://elasticsearch:9200
+      - MARGIN_DATA_DIR=/data
     volumes:
       - ./manuscripts:/work/manuscripts:ro
+      - margin-data:/data # Google token, Docs state, vector cache
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:
@@ -37,3 +39,4 @@ services:
 
 volumes:
   esdata:
+  margin-data:

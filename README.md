@@ -72,7 +72,39 @@ Put it in `manuscripts/` (git-ignored, mounted read-only into the service), eith
 ./margin ask "What colour is the door of the inn?"
 ```
 
-Ingesting again replaces the index completely. Margin never writes to your files.
+Ingesting again replaces the index completely. Margin never writes to your files. Passage vectors are cached (in the `margin-data` volume), so re-ingesting after an edit only embeds the passages that changed.
+
+### Google Docs
+
+If your book is a Google Doc with one tab per chapter, Margin can read it directly. Margin only reads the document, and asks Google for read-only access to your Docs and nothing else. You need your own Google OAuth client, which takes about ten minutes to set up once:
+
+1. **Project.** Go to [console.cloud.google.com](https://console.cloud.google.com/), sign in with the Google account that owns the document, and create a project (any name, e.g. "Margin").
+2. **API.** In *APIs & Services → Library*, search for **Google Docs API** and click **Enable**.
+3. **Consent screen.** In *APIs & Services → OAuth consent screen* (called *Google Auth Platform* in newer consoles), click *Get started*:
+   - App name "Margin", your email as the support and contact email, audience **External**.
+   - Under *Audience* → *Test users*, add your own Google address.
+   - Under *Data access*, add the scope `.../auth/documents.readonly`.
+4. **Client.** In *Clients* (or *Credentials → Create credentials → OAuth client ID*), choose application type **Web application**, and under *Authorized redirect URIs* add exactly `http://localhost:8000/google/callback`. Create it.
+5. **Keys.** Copy the client ID and client secret into `.env`:
+   ```sh
+   GOOGLE_CLIENT_ID=1234-abc.apps.googleusercontent.com
+   GOOGLE_CLIENT_SECRET=GOCSPX-...
+   ```
+   Then restart Margin: `docker compose up -d`.
+6. **Sign in.** Run `./margin google login`, open the link it prints, and allow access. Google warns that it "hasn't verified this app": that's expected for your own private client. Click *Continue*.
+
+While the app's publishing status is *Testing*, Google expires the sign-in after 7 days, and `./margin google login` signs you in again. To stay signed in, set the status to *In production* under *Audience*. A personal app with under 100 users needs no review by Google; the unverified-app warning stays.
+
+```sh
+./margin ingest "https://docs.google.com/document/d/…/edit" --exclude "Notes*" --exclude "Cast"
+./margin check --tab "Chapter 13"        # checked against the rest of the book
+./margin google logout                   # deletes the token and revokes access
+```
+
+- **Tabs.** Each tab is a chapter, named after the tab, and child tabs follow their parent. A tab containing several chapter headings is split by them.
+- **Excluding tabs.** `--exclude` takes glob patterns on tab names, case-insensitive. Margin remembers the patterns for that document, so later ingests skip those tabs too; `--exclude ""` clears them.
+- **Re-ingesting.** If nothing changed, re-ingesting is one small request. Otherwise only changed tabs are embedded again.
+- **Where data lives.** The token, the document's state and the vector cache stay in the `margin-data` Docker volume, never in this folder. `docker compose down -v` removes them.
 
 ### Commands
 
@@ -80,11 +112,14 @@ Ingesting again replaces the index completely. Margin never writes to your files
 |---|---|
 | `./margin status` | Whether Margin is ready, what is indexed, and what is sent to the model |
 | `./margin ingest <path>` / `--demo` | Index a manuscript |
+| `./margin ingest <Google Doc link> --exclude "Notes*"` | Index a Google Doc, one chapter per tab, leaving out matching tabs |
+| `./margin google login` / `logout` / `status` | Sign in to Google (read-only), sign out and revoke, or show the state |
 | `./margin ask "<question>"` | Answer with verified citations, or "Not in the manuscript." |
 | `./margin ask … --show-passages` | Also print the retrieved passages, with BM25, kNN and fused scores |
 | `./margin ask … --debug` | Also print statements dropped because their quotes didn't verify |
 | `./margin check <chapter>` | Check a new chapter against the manuscript: contradictions in full, consistent and new as counts |
 | `./margin check … --replaces 6` | Check a revised chapter 6 against the rest of the book, not its old version |
+| `./margin check --tab "Chapter 13"` | Check a tab of the ingested Google Doc against the rest of the book |
 | `./margin check … --all` / `--yes` | List consistent and new claims too / don't ask before spending |
 
 The same is available over HTTP at `http://localhost:8000` (`GET /status`, `POST /ingest`, `POST /ask` as server-sent events), with OpenAPI docs at `/docs`.

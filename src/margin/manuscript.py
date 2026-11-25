@@ -194,12 +194,35 @@ def load_chapter(path: Path) -> Chapter:
     if path.suffix.lower() not in SINGLE_FILE_SUFFIXES or not path.is_file():
         return Chapter(number=0, title=path.stem)
     lines = _docx_lines(path) if path.suffix.lower() == ".docx" else _text_lines(path)
-    title = path.stem
+    return chapter_from_lines(path.stem, lines)
+
+
+def chapter_from_lines(title: str, lines: list[str]) -> Chapter:
+    """One chapter: a heading on its first line is its title; later headings are kept as text."""
     for i, line in enumerate(lines):
         if line.strip():
             if (heading := _heading(line)) is not None:
                 title, lines = heading, lines[i + 1 :]
             break
-    # Later headings inside the chapter are kept as text.
     lines = [m.group("title") if (m := MARKDOWN_HEADING.match(x.strip())) else x for x in lines]
     return Chapter(number=0, title=title, paragraphs=_paragraphs(lines))
+
+
+def chapters_from_tab(title: str, lines: list[str]) -> list[Chapter]:
+    """A Google Docs tab is one chapter titled by the tab, unless it holds several chapter
+    headings, when it is split by them like a single file."""
+    split = [c for c in _from_headings(lines) if c.paragraphs]
+    if len(split) > 1:
+        return split
+    chapter = chapter_from_lines(title, lines)
+    chapter.title = title  # the tab's name is what the author sees in Docs
+    return [chapter]
+
+
+def from_tabs(name: str, tabs: list[tuple[str, list[str]]]) -> Manuscript:
+    chapters = [c for title, lines in tabs for c in chapters_from_tab(title, lines) if c.paragraphs]
+    if not chapters:
+        raise NoChaptersError(name)
+    for number, chapter in enumerate(chapters, 1):
+        chapter.number = number
+    return Manuscript(name=name, chapters=chapters)
