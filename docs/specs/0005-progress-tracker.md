@@ -1,6 +1,6 @@
 # 0005: Progress tracker
 
-Status: draft
+Status: approved
 
 ## Problem
 
@@ -38,7 +38,7 @@ Terms are from `CONTEXT.md`.
   - drafted and stub counts
   - words since last time and this week
   - a chart of total words over time, drawn as inline SVG with no chart library; each point is a snapshot, and hovering shows its date and total
-  - the chapters in reading order, each with a bar for its words and a stub or drafted label
+  - a **chapter-length chart**: one horizontal bar per chapter in reading order, with a line at the median length of the drafted chapters, and stubs greyed out, so long and short chapters stand out at a glance. Hovering a bar shows its words and its percentage of the median. The chart never labels a chapter "too long" or "too short": some chapters, like interludes, are short on purpose.
 - **AC-6 History starts now.** Before the second snapshot there's no growth to show: the page says "Progress over time appears after your next ingest" instead of an empty chart.
 - **AC-7 HTTP.** `GET /progress` returns the target, the latest snapshot and the history (time and total per snapshot). `POST /progress/target` sets the target.
 
@@ -82,3 +82,7 @@ Drafted 12 of 18 chapters · 6 stubs
 ## Open questions
 
 1. **Stub threshold.** Recommended: 200 words, configurable. A tab holding an outline of a few hundred words would count as drafted, so it could be raised.
+
+## Decisions
+
+- 2026-11-26: Approved with a 200-word stub threshold, and with a chapter-length chart (median line, stubs greyed) in place of the per-chapter list.

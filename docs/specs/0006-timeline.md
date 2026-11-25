@@ -1,6 +1,6 @@
 # 0006: Timeline
 
-Status: draft
+Status: approved
 
 ## Problem
 
@@ -131,3 +131,7 @@ Not placed (no time given)
 
 1. **Placement model.** Recommended: run the eval with Claude Sonnet 5.5 and Claude Opus 5.5 for placement and pick by the numbers (extraction on Sonnet), as with spec 0002.
 2. **Where it lives in the page.** Recommended: its own **Timeline** view beside Ask, Check, Progress and Manuscript.
+
+## Decisions
+
+- 2026-11-26: Approved. Regenerate only, never on ingest (owner's decision, for cost). The eval is run with Sonnet and Opus for placement, and the model is picked by the numbers. The timeline gets its own view.
