@@ -414,3 +414,45 @@ def google_status() -> None:
         out.print("Signed in." if s["signed_in"] else "Not signed in: ./margin google login")
     if s["current"]:
         out.print(f'Ingested: "{s["current"]["title"]}"', markup=False)
+
+
+@app.command()
+def progress(
+    target: Annotated[
+        int | None, typer.Option(help="Set the word target for the indexed manuscript (0 clears)")
+    ] = None,
+) -> None:
+    """Words against your target, drafted and stub chapters, and growth since last time."""
+    from datetime import datetime
+
+    if target is not None:
+        p = _request("POST", "/progress/target", json={"target": target or None})
+    else:
+        p = _request("GET", "/progress")
+    total = f"{p['total']:,}"
+    if p["target"]:
+        total += f" of {p['target']:,} words ({p['percent']:.0f}%)"
+    else:
+        total += " words (set a target with --target 80000)"
+    out.print(f"{p['manuscript']}: {total}", markup=False)
+    n = len(p["chapters"])
+    out.print(
+        f"Drafted {p['drafted']} of {n} chapters · {p['stubs']} stubs (under {p['stub_words']} words)"
+    )
+
+    def day(at: str) -> str:
+        return datetime.fromisoformat(at).strftime("%-d %b")
+
+    growth = []
+    if p["since_last"]:
+        growth.append(f"{p['since_last']['words']:+,} words since {day(p['since_last']['since'])}")
+    if p["last_7_days"] is not None:
+        growth.append(f"{p['last_7_days']:+,} in the last 7 days")
+    out.print(" · ".join(growth) if growth else "[dim]Growth appears after your next ingest.[/dim]")
+    out.print()
+    width = max(len(c["title"]) for c in p["chapters"]) + 4
+    for c in p["chapters"]:
+        out.print(
+            f"{c['number']:>3}  {c['title'] + ' ':.<{width}} {c['words']:>7,}  {c['status']}",
+            markup=False,
+        )

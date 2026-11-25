@@ -97,7 +97,7 @@ function thinking(text) {
 
 // --- Views ---------------------------------------------------------------------------
 
-const VIEWS = ["ask", "check", "manuscript"];
+const VIEWS = ["ask", "check", "progress", "manuscript"];
 
 function setView(name) {
   for (const v of VIEWS) {
@@ -107,6 +107,7 @@ function setView(name) {
   clearError();
   if (name === "check") loadCheckTabs();
   if (name === "manuscript") loadManuscriptView();
+  if (name === "progress") loadProgress();
   if (name === "ask") $("question").focus();
 }
 
@@ -560,6 +561,123 @@ async function runCheck(plan, replaces, button) {
   }
 }
 
+// --- Progress ------------------------------------------------------------------------
+
+const SVG = "http://www.w3.org/2000/svg";
+
+function svg(tag, attrs = {}, ...children) {
+  const node = document.createElementNS(SVG, tag);
+  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, String(v));
+  for (const c of children) node.append(c instanceof Node ? c : document.createTextNode(String(c)));
+  return node;
+}
+
+const day = (iso) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+const signed = (n) => `${n >= 0 ? "+" : "−"}${fmt(Math.abs(n))}`;
+
+async function loadProgress() {
+  try {
+    renderProgress(await api("GET", "/progress"));
+  } catch (error) {
+    showError(error);
+  }
+}
+
+function renderProgress(p) {
+  $("progress-name").textContent = p.manuscript;
+  $("progress-total").textContent = fmt(p.total);
+  $("progress-of").textContent = p.target ? ` of ${fmt(p.target)} words · ${Math.round(p.percent)}%` : " words";
+  const bar = $("target-bar");
+  bar.hidden = !p.target;
+  if (p.target) bar.firstElementChild.style.width = `${Math.min(100, p.percent)}%`;
+  if (document.activeElement !== $("target-input")) $("target-input").value = p.target || "";
+
+  const stats = [
+    el("div", {}, el("strong", {}, `${p.drafted} of ${p.chapters.length}`), el("span", {}, "chapters drafted")),
+    el("div", {}, el("strong", {}, String(p.stubs)), el("span", {}, `stubs, under ${fmt(p.stub_words)} words`)),
+  ];
+  if (p.since_last) {
+    stats.push(el("div", {}, el("strong", {}, signed(p.since_last.words)), el("span", {}, `words since ${day(p.since_last.since)}`)));
+  }
+  if (p.last_7_days !== null) {
+    stats.push(el("div", {}, el("strong", {}, signed(p.last_7_days)), el("span", {}, "in the last 7 days")));
+  }
+  $("progress-stats").replaceChildren(...stats);
+  renderGrowth(p.history);
+  renderLengths(p);
+}
+
+function renderGrowth(history) {
+  const box = $("growth");
+  if (history.length < 2) {
+    box.replaceChildren(el("p", { class: "hint" }, "Progress over time appears after your next ingest."));
+    return;
+  }
+  const W = 720, H = 180, L = 52, R = 12, T = 12, B = 28;
+  const times = history.map((h) => new Date(h.at).getTime());
+  const t0 = times[0], t1 = Math.max(times[times.length - 1], t0 + 1);
+  const max = Math.max(...history.map((h) => h.total)) * 1.08 || 1;
+  const x = (t) => L + ((t - t0) / (t1 - t0)) * (W - L - R);
+  const y = (v) => T + (1 - v / max) * (H - T - B);
+  const pts = history.map((h, i) => [x(times[i]), y(h.total)]);
+  const line = pts.map(([px, py], i) => `${i ? "L" : "M"}${px.toFixed(1)},${py.toFixed(1)}`).join("");
+  const area = `${line}L${pts[pts.length - 1][0].toFixed(1)},${H - B}L${pts[0][0].toFixed(1)},${H - B}Z`;
+  const chart = svg("svg", { viewBox: `0 0 ${W} ${H}`, class: "growth", role: "img", "aria-label": "Total words over time" });
+  for (const f of [0, 0.5, 1]) {
+    const v = Math.round((max / 1.08) * f);
+    chart.append(svg("line", { x1: L, x2: W - R, y1: y(v), y2: y(v), class: "grid" }));
+    chart.append(svg("text", { x: L - 8, y: y(v) + 4, class: "axis", "text-anchor": "end" }, fmt(v)));
+  }
+  chart.append(svg("path", { d: area, class: "area" }), svg("path", { d: line, class: "line" }));
+  chart.append(svg("text", { x: L, y: H - 8, class: "axis" }, day(history[0].at)));
+  chart.append(svg("text", { x: W - R, y: H - 8, class: "axis", "text-anchor": "end" }, day(history[history.length - 1].at)));
+  history.forEach((h, i) => {
+    chart.append(
+      svg("circle", { cx: pts[i][0], cy: pts[i][1], r: 4, class: "pt" }, svg("title", {}, `${day(h.at)}: ${fmt(h.total)} words`)),
+    );
+  });
+  box.replaceChildren(chart);
+}
+
+function renderLengths(p) {
+  const box = $("lengths");
+  const max = Math.max(1, ...p.chapters.map((c) => c.words));
+  $("lengths-hint").textContent = p.median
+    ? `In reading order. The dashed line marks the median drafted chapter, ${fmt(Math.round(p.median))} words. Stubs are greyed.`
+    : "In reading order. Stubs are greyed.";
+  const rows = p.chapters.map((c) => {
+    const tip = c.of_median !== null && c.status === "drafted" ? `${fmt(c.words)} words · ${c.of_median}% of the median` : `${fmt(c.words)} words · stub`;
+    return el(
+      "div",
+      { class: `len-row ${c.status}`, title: tip },
+      el("span", { class: "len-title" }, c.title),
+      el(
+        "span",
+        { class: "len-track" },
+        el("span", { class: "len-fill", style: `width:${Math.max(0.5, (100 * c.words) / max)}%` }),
+      ),
+      el("span", { class: "len-words" }, fmt(c.words)),
+    );
+  });
+  const chart = el("div", { class: "len-chart" }, rows);
+  if (p.median) {
+    chart.style.setProperty("--median", `${(100 * p.median) / max}%`);
+    chart.classList.add("has-median");
+  }
+  box.replaceChildren(chart);
+}
+
+async function saveTarget(event) {
+  event.preventDefault();
+  clearError();
+  const value = parseInt($("target-input").value, 10);
+  try {
+    renderProgress(await api("POST", "/progress/target", { target: Number.isFinite(value) && value > 0 ? value : null }));
+  } catch (error) {
+    showError(error);
+  }
+}
+
 // --- Manuscript ----------------------------------------------------------------------
 
 function globEscape(name) {
@@ -794,6 +912,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("file-ingest").addEventListener("click", (e) => ingest({ path: $("file-pick").value }, e.currentTarget));
   $("demo-ingest").addEventListener("click", (e) => ingest({ demo: true }, e.currentTarget));
   $("panel-close").addEventListener("click", closePanel);
+  $("target-form").addEventListener("submit", saveTarget);
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !$("panel").hidden) closePanel();
   });

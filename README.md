@@ -120,6 +120,7 @@ While the app's publishing status is *Testing*, Google expires the sign-in after
 | `./margin ask … --debug` | Also print statements dropped because their quotes didn't verify |
 | `./margin check <chapter>` | Check a new chapter against the manuscript: contradictions in full, consistent and new as counts |
 | `./margin check … --replaces 6` | Check a revised chapter 6 against the rest of the book, not its old version |
+| `./margin progress` / `--target 80000` | Words against your target, drafted and stub chapters, growth since last time (no model calls) |
 | `./margin check --tab "Chapter 13"` | Check a tab of the ingested Google Doc against the rest of the book |
 | `./margin check … --all` / `--yes` | List consistent and new claims too / don't ask before spending |
 

@@ -62,6 +62,9 @@ class Settings(BaseSettings):
     check_concurrency: int = 4
     confirm_above_usd: float = 0.25
 
+    # Progress tracker (spec 0005): a chapter under this many words is a stub.
+    stub_words: int = 200
+
 
 def estimate_cost(model: str, input_tokens: int, output_tokens: int) -> float | None:
     """Estimated cost in US dollars, or None for a model without a known price."""

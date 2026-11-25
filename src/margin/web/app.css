@@ -208,6 +208,38 @@ summary { cursor: pointer; color: var(--muted); font-size: 14px; padding: 6px 0;
 .done-note { margin-top: 16px; padding: 12px 14px; border-radius: var(--radius); background: var(--ok-soft); color: var(--ink); }
 .done-note strong { color: var(--ok); }
 
+/* Progress */
+.big-number { font: 600 40px/1.1 var(--serif); margin: 6px 0 4px; font-variant-numeric: tabular-nums; }
+.big-number .of { font: 400 16px var(--sans); color: var(--muted); }
+.target-bar { height: 8px; border-radius: 4px; background: var(--sunk); box-shadow: inset 0 0 0 1px var(--rule); overflow: hidden; margin: 10px 0 4px; }
+.target-bar span { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+.target-form { margin-top: 12px; max-width: 320px; }
+.target-form label { font-size: 13px; color: var(--muted); }
+.target-form input { width: 130px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 18px; }
+.stats div { background: var(--sunk); border-radius: 8px; padding: 10px 12px; }
+.stats strong { display: block; font: 600 20px var(--serif); font-variant-numeric: tabular-nums; }
+.stats span { color: var(--muted); font-size: 13px; }
+svg.growth { width: 100%; height: auto; display: block; }
+svg.growth .grid { stroke: var(--rule); stroke-width: 1; }
+svg.growth .axis { fill: var(--faint); font: 11px var(--sans); }
+svg.growth .line { fill: none; stroke: var(--accent); stroke-width: 2.2; stroke-linejoin: round; }
+svg.growth .area { fill: var(--accent); opacity: 0.12; }
+svg.growth .pt { fill: var(--surface); stroke: var(--accent); stroke-width: 2; }
+.len-chart { position: relative; display: grid; gap: 5px; }
+.len-row { display: grid; grid-template-columns: minmax(110px, 180px) 1fr 64px; align-items: center; gap: 12px; font-size: 13px; }
+.len-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.len-track { position: relative; height: 14px; }
+.len-fill { display: block; height: 100%; border-radius: 3px; background: var(--accent); opacity: 0.85; }
+.len-row.stub .len-fill { background: var(--faint); opacity: 0.45; }
+.len-row.stub .len-title, .len-row.stub .len-words { color: var(--faint); }
+.len-row:hover .len-fill { opacity: 1; }
+.len-words { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+.has-median .len-track::after {
+  content: ""; position: absolute; top: -3px; bottom: -3px; left: var(--median);
+  border-left: 1.5px dashed var(--ink); opacity: 0.45;
+}
+
 /* Passage panel */
 .panel {
   position: fixed; top: 0; right: 0; bottom: 0; z-index: 10; width: min(520px, 92vw);
