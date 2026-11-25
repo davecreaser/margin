@@ -18,6 +18,7 @@
     <nav class="tabs" role="tablist" aria-label="Views">
       <button role="tab" id="tab-ask" aria-controls="view-ask" aria-selected="true">Ask</button>
       <button role="tab" id="tab-check" aria-controls="view-check" aria-selected="false">Check a chapter</button>
+      <button role="tab" id="tab-timeline" aria-controls="view-timeline" aria-selected="false">Timeline</button>
       <button role="tab" id="tab-progress" aria-controls="view-progress" aria-selected="false">Progress</button>
       <button role="tab" id="tab-manuscript" aria-controls="view-manuscript" aria-selected="false">Manuscript</button>
     </nav>
@@ -66,6 +67,30 @@
       </form>
       <div id="check-plan" class="plan" hidden></div>
       <div id="check-results" aria-live="polite"></div>
+    </section>
+
+    <!-- Timeline -->
+    <section class="view" id="view-timeline" role="tabpanel" aria-labelledby="tab-timeline" hidden>
+      <div class="card">
+        <div class="row spread">
+          <div>
+            <div class="panel-kicker" id="timeline-name"></div>
+            <p class="hint" id="timeline-meta"></p>
+          </div>
+          <button class="secondary" id="timeline-regenerate">Regenerate…</button>
+        </div>
+        <p class="stale" id="timeline-stale" hidden></p>
+        <div id="timeline-plan" class="plan" hidden></div>
+      </div>
+      <div class="row timeline-tools" id="timeline-tools" hidden>
+        <div class="segmented" role="radiogroup" aria-label="Order">
+          <label><input type="radio" name="timeline-order" value="story" checked> Story order</label>
+          <label><input type="radio" name="timeline-order" value="reading"> Reading order</label>
+        </div>
+        <label for="timeline-filter" class="visually-hidden">Filter events</label>
+        <input id="timeline-filter" type="search" placeholder="Filter: a name, a place…" autocomplete="off">
+      </div>
+      <div id="timeline-body" aria-live="polite"></div>
     </section>
 
     <!-- Progress -->

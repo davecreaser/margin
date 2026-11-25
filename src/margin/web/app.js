@@ -97,7 +97,7 @@ function thinking(text) {
 
 // --- Views ---------------------------------------------------------------------------
 
-const VIEWS = ["ask", "check", "progress", "manuscript"];
+const VIEWS = ["ask", "check", "timeline", "progress", "manuscript"];
 
 function setView(name) {
   for (const v of VIEWS) {
@@ -108,6 +108,7 @@ function setView(name) {
   if (name === "check") loadCheckTabs();
   if (name === "manuscript") loadManuscriptView();
   if (name === "progress") loadProgress();
+  if (name === "timeline") loadTimeline();
   if (name === "ask") $("question").focus();
 }
 
@@ -561,6 +562,179 @@ async function runCheck(plan, replaces, button) {
   }
 }
 
+// --- Timeline ------------------------------------------------------------------------
+
+const timelineState = { data: null };
+
+async function loadTimeline() {
+  try {
+    const g = await api("GET", "/timeline");
+    timelineState.data = g;
+    renderTimelineHead(g);
+    renderTimeline();
+  } catch (error) {
+    showError(error);
+  }
+}
+
+function renderTimelineHead(g) {
+  const t = g.timeline;
+  $("timeline-name").textContent = g.manuscript;
+  $("timeline-tools").hidden = !t;
+  $("timeline-regenerate").textContent = t ? "Regenerate…" : "Make the timeline…";
+  if (!t) {
+    $("timeline-meta").textContent =
+      "Margin reads every chapter and puts its events in story order, each quoted. It runs only when you ask, after showing the cost.";
+  } else {
+    const placed = t.periods.reduce((n, p) => n + p.events.length, 0);
+    $("timeline-meta").textContent =
+      `${fmt(placed)} events in ${t.periods.length} periods · ${fmt(t.unplaced.length)} not placed · made ${day(t.made_at)} · ${t.models.join(" + ")} · ${money(t.cost)}`;
+  }
+  const stale = $("timeline-stale");
+  stale.hidden = !g.changed;
+  if (g.changed) {
+    stale.textContent = `${g.changed} chapter${g.changed > 1 ? "s" : ""} changed since this timeline was made. Regenerate re-reads only those.`;
+  }
+}
+
+function eventMatches(e, q) {
+  return !q || `${e.text} ${e.quote} ${e.chapter_label}`.toLowerCase().includes(q);
+}
+
+function eventCard(e, chip) {
+  const quote = e.passage_id
+    ? el("button", { class: "tl-quote quote", onclick: (ev) => openPassage(e.passage_id, e.quote, ev.currentTarget) }, e.quote)
+    : el("span", { class: "tl-quote quote" }, e.quote);
+  const card = el(
+    "article",
+    { class: `tl-card${e.uncertain ? " uncertain" : ""}` },
+    el("div", { class: "tl-top" }, el("span", { class: "chip" }, chip), e.uncertain ? el("span", { class: "hint" }, "uncertain") : null),
+    el("p", { class: "tl-text" }, e.text),
+    quote,
+  );
+  if (e.basis && e.basis.length) {
+    card.append(
+      el(
+        "p",
+        { class: "tl-basis" },
+        "placed by ",
+        e.basis.flatMap((b, i) => [i ? " · " : "", el("q", {}, b.time), ` (${b.chapter_label})`]),
+      ),
+    );
+  }
+  return card;
+}
+
+function renderTimeline() {
+  const g = timelineState.data;
+  const body = $("timeline-body");
+  if (!g || !g.timeline) {
+    body.replaceChildren();
+    return;
+  }
+  const t = g.timeline;
+  const q = $("timeline-filter").value.trim().toLowerCase();
+  const order = document.querySelector('input[name="timeline-order"]:checked').value;
+  const nodes = [];
+  if (order === "story") {
+    for (const period of t.periods) {
+      const cards = period.events.filter((e) => eventMatches(e, q)).map((e) => eventCard(e, e.chapter_label));
+      if (cards.length) nodes.push(el("section", { class: "tl-period" }, el("h3", {}, period.label), cards));
+    }
+    const loose = t.unplaced.filter((e) => eventMatches(e, q));
+    if (loose.length) {
+      nodes.push(
+        el(
+          "section",
+          { class: "tl-period unplaced" },
+          el("h3", {}, "Not placed"),
+          el("p", { class: "hint" }, "The text gives no time for these, so Margin doesn't guess."),
+          loose.map((e) => eventCard(e, e.chapter_label)),
+        ),
+      );
+    }
+  } else {
+    const periodOf = new Map();
+    t.periods.forEach((p) => p.events.forEach((e) => periodOf.set(e.id, p.label)));
+    const all = [...t.periods.flatMap((p) => p.events), ...t.unplaced].sort(
+      (a, b) => a.chapter - b.chapter || a.paragraph - b.paragraph,
+    );
+    const byChapter = new Map();
+    for (const e of all.filter((x) => eventMatches(x, q))) {
+      if (!byChapter.has(e.chapter)) byChapter.set(e.chapter, []);
+      byChapter.get(e.chapter).push(e);
+    }
+    for (const events of byChapter.values()) {
+      nodes.push(
+        el(
+          "section",
+          { class: "tl-period reading" },
+          el("h3", {}, events[0].chapter_label),
+          events.map((e) => eventCard(e, periodOf.get(e.id) || "Not placed")),
+        ),
+      );
+    }
+  }
+  body.replaceChildren(
+    nodes.length ? el("div", { class: `tl ${order}` }, nodes) : el("p", { class: "hint" }, "No events match the filter."),
+  );
+}
+
+async function planTimeline() {
+  clearError();
+  const plan = $("timeline-plan");
+  try {
+    const e = await api("POST", "/timeline/estimate");
+    const n = e.changed.length;
+    const what = !timelineState.data?.timeline
+      ? `Reading all ${fmt(e.chapters)} chapters`
+      : n
+        ? `Re-reading ${n} changed chapter${n > 1 ? "s" : ""} (${e.changed.map((c) => c.title).join(", ")})`
+        : "No chapter changed: only placing again";
+    const run = el("button", { class: "primary" }, `Regenerate (${money(e.worst_case)} at most)`);
+    const cancel = el("button", { class: "secondary", onclick: () => (plan.hidden = true) }, "Cancel");
+    run.addEventListener("click", () => regenerateTimeline(run));
+    plan.replaceChildren(
+      el("p", {}, `${what}, then placing up to ${fmt(e.events_max)} events in story order.`),
+      el("p", { class: "hint" }, `Worst case ${money(e.worst_case)} with ${e.models.join(" and ")}. Unchanged chapters are never read again.`),
+      el("div", { class: "row" }, run, cancel),
+    );
+    plan.hidden = false;
+    run.focus();
+  } catch (error) {
+    showError(error);
+  }
+}
+
+async function regenerateTimeline(button) {
+  button.disabled = true;
+  const plan = $("timeline-plan");
+  const text = el("span", {}, "Reading chapters…");
+  const fill = el("span");
+  plan.replaceChildren(el("div", { class: "progress" }, text, el("div", { class: "bar" }, fill)));
+  const total = timelineState.data ? (state.status?.chapters || 0) : 0;
+  let read = 0;
+  try {
+    await stream("/timeline/regenerate", {}, (name, data) => {
+      if (name === "chapter_done") {
+        read += 1;
+        text.textContent = `Read ${data.title}${data.cached ? " (unchanged)" : ` · ${data.events} events`}`;
+        if (total) fill.style.width = `${Math.min(95, (100 * read) / total)}%`;
+      } else if (name === "placing") {
+        text.textContent = `Placing ${fmt(data.events)} events in story order…`;
+        fill.style.width = "97%";
+      } else if (name === "error") {
+        throw new ApiError(data.message);
+      }
+    });
+    plan.hidden = true;
+    await loadTimeline();
+  } catch (error) {
+    plan.hidden = true;
+    showError(error);
+  }
+}
+
 // --- Progress ------------------------------------------------------------------------
 
 const SVG = "http://www.w3.org/2000/svg";
@@ -918,6 +1092,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("demo-ingest").addEventListener("click", (e) => ingest({ demo: true }, e.currentTarget));
   $("panel-close").addEventListener("click", closePanel);
   $("target-form").addEventListener("submit", saveTarget);
+  $("timeline-regenerate").addEventListener("click", planTimeline);
+  $("timeline-filter").addEventListener("input", renderTimeline);
+  for (const r of document.querySelectorAll('input[name="timeline-order"]')) r.addEventListener("change", renderTimeline);
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !$("panel").hidden) closePanel();
   });

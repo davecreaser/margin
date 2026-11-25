@@ -65,6 +65,15 @@ class Settings(BaseSettings):
     # Progress tracker (spec 0005): a chapter under this many words is a stub.
     stub_words: int = 200
 
+    # Timeline (spec 0006): built only on request.
+    events_model: str = "claude-sonnet-5-5"
+    events_effort: str = "low"
+    events_max_tokens: int = 6000
+    event_cap: int = 25
+    place_model: str = "claude-sonnet-5-5"
+    place_effort: str = "low"
+    place_max_tokens: int = 24000
+
 
 def estimate_cost(model: str, input_tokens: int, output_tokens: int) -> float | None:
     """Estimated cost in US dollars, or None for a model without a known price."""

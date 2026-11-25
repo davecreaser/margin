@@ -460,3 +460,100 @@ def progress(
             f"{c['number']:>3}  {c['title'] + ' ':.<{width}} {c['words']:>7,}  {c['status']}",
             markup=False,
         )
+
+
+def _day(at: str) -> str:
+    from datetime import datetime
+
+    return datetime.fromisoformat(at).strftime("%-d %b")
+
+
+def _print_timeline(t: dict[str, Any]) -> None:
+    width = max(
+        [len(e["chapter_label"]) for p in t["periods"] for e in p["events"]]
+        + [len(e["chapter_label"]) for e in t["unplaced"]]
+        + [8]
+    )
+    for period in t["periods"]:
+        out.print(f"\n[bold]{escape(period['label'])}[/bold]")
+        for e in period["events"]:
+            mark = " [dim](uncertain)[/dim]" if e["uncertain"] else ""
+            out.print(f"  {escape(e['chapter_label']):<{width}}  {escape(e['text'])}{mark}")
+            out.print(f'  {"":<{width}}  [dim]"{escape(e["quote"])}"[/dim]')
+            basis = " · ".join(
+                f'"{escape(b["time"])}" ({escape(b["chapter_label"])})' for b in e["basis"]
+            )
+            out.print(f"  {'':<{width}}  [dim]placed by {basis}[/dim]")
+    if t["unplaced"]:
+        out.print("\n[bold]Not placed[/bold] [dim](the text gives no time)[/dim]")
+        for e in t["unplaced"]:
+            out.print(f"  {escape(e['chapter_label']):<{width}}  {escape(e['text'])}")
+    placed = sum(len(p["events"]) for p in t["periods"])
+    out.print(
+        f"\n[dim]{placed} events placed in {len(t['periods'])} periods · "
+        f"{len(t['unplaced'])} not placed · made {_day(t['made_at'])} · "
+        f"{' + '.join(t['models'])} · ≈ ${t['cost']:.2f}[/dim]"
+    )
+
+
+@app.command()
+def timeline(
+    regenerate: Annotated[
+        bool, typer.Option("--regenerate", help="Rebuild it (re-reads changed chapters)")
+    ] = False,
+    yes: Annotated[bool, typer.Option("--yes", help="Don't ask before spending")] = False,
+) -> None:
+    """The story's events in story order, each quoted. Built only when you ask."""
+    g = _request("GET", "/timeline")
+    saved = g["timeline"]
+    if not regenerate:
+        if saved is None:
+            e = _request("POST", "/timeline/estimate")
+            out.print(
+                f"No timeline for {g['manuscript']} yet. Make one with "
+                f"./margin timeline --regenerate (≈ ${e['worst_case']:.2f} at most).",
+                markup=False,
+            )
+            return
+        if g["changed"]:
+            n = g["changed"]
+            out.print(
+                f"[yellow]Made on {_day(saved['made_at'])} · {n} chapter{'s' if n > 1 else ''} "
+                "changed since. ./margin timeline --regenerate updates it.[/yellow]"
+            )
+        _print_timeline(saved)
+        return
+
+    e = _request("POST", "/timeline/estimate")
+    n = len(e["changed"])
+    what = (
+        f"{n} of {e['chapters']} chapters changed" if saved else f"Reading {e['chapters']} chapters"
+    )
+    out.print(
+        f"Timeline for {g['manuscript']}: {what}, then placing up to {e['events_max']} events "
+        f"with {' + '.join(e['models'])} ≈ ${e['worst_case']:.2f} at most.",
+        markup=False,
+    )
+    if e["worst_case"] > e["confirm_above"] and not yes and not typer.confirm("Continue?"):
+        raise typer.Exit(0)
+    try:
+        with httpx.stream("POST", _url("/timeline/regenerate"), timeout=None) as response:
+            if response.status_code >= 400:
+                response.read()
+                _check(response)
+            status = err.status("Reading chapters…")
+            status.start()
+            for name, data in _events(response):
+                if name == "chapter_done":
+                    how = "unchanged" if data["cached"] else f"{data['events']} events"
+                    status.update(f"Read {data['title']} ({how})…")
+                elif name == "placing":
+                    status.update(f"Placing {data['events']} events in story order…")
+                elif name == "error":
+                    status.stop()
+                    _fail(data["message"])
+                elif name == "done":
+                    status.stop()
+                    _print_timeline(data)
+    except httpx.ConnectError:
+        _fail(SERVICE_DOWN)

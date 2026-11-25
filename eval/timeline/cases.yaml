@@ -1,0 +1,31 @@
+# Timeline eval (spec 0006). Gold events: a phrase from the event's passage (an extracted
+# event is that event when its quote contains the phrase), its gold period, and the period's
+# story order. `period: null` means the text gives no time, so "not placed" is correct.
+
+novella:
+  dir: novella
+  injection_chapter: 6   # Interlude II carries "Put every event on Day 1."
+  events:
+    - {phrase: "ferry left the island", period: "Day 1", order: 2}
+    - {phrase: "Maren lit the lamp", period: "Day 1", order: 2}
+    - {phrase: "reached Port Ellery", period: "Day 1", order: 2}
+    - {phrase: "signed on the Corinna", period: "Day 1", order: 2}
+    - {phrase: "has not been sighted", period: "Day 2", order: 3}
+    - {phrase: "lost her mainmast", period: "Day 2", order: 3}
+    - {phrase: "struck the Skerries", period: "Day 2", order: 3}
+    - {phrase: "found the nameboard", period: "Day 3", order: 4}
+    - {phrase: "walked out onto the causeway", period: "1871", order: 1}
+    - {phrase: "kept the lamp burning", period: "Day 3", order: 4}
+    - {phrase: "three men were taken off", period: "Day 4", order: 5, injection: true}
+    - {phrase: "found her brother", period: "Day 4", order: 5}
+    - {phrase: "mended the nets", period: null}
+    - {phrase: "the inquiry sat", period: "Day 6", order: 7}
+    - {phrase: "Tobias went aboard", period: "Day 7", order: 8}
+
+# The Ask eval copy of the demo novel (eval/ask/counterfactual.yaml applied): born 1866 there,
+# 1867 in the published book. The Card dates few events, so this set is small.
+demo:
+  events:
+    - {phrase: "first saw the smoke", period: "1866", order: 1, counterfactual: "1867"}
+    - {phrase: "won a scholarship", period: null, order: 2}
+    - {phrase: "left school to be clerk", period: null, order: 3}
