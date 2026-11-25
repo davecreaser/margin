@@ -6,7 +6,7 @@ from xml.sax.saxutils import escape, quoteattr
 from pydantic import BaseModel, Field
 
 from margin.llm import ModelClient, ModelReply
-from margin.passages import Passage
+from margin.passages import Passage, chapter_label
 
 PROSE_REFUSAL = "Margin answers questions about your manuscript; it doesn't write it."
 NOT_IN_MANUSCRIPT = "Not in the manuscript."
@@ -60,10 +60,17 @@ def _capped(text: str) -> str:
     return " ".join(words[:PASSAGE_WORD_CAP]) + " …"
 
 
+def _chapter(p: Passage) -> str:
+    """The chapter as the author names it: "Interlude II", or "6" for a descriptive title,
+    which keeps prompts for such manuscripts exactly as they were."""
+    label = chapter_label(p.chapter, p.chapter_title)
+    return str(p.chapter) if label == f"Chapter {p.chapter}" else label
+
+
 def build_prompt(question: str, passages: list[Passage]) -> str:
     """Passages and the question as tagged, escaped data (ADR 0005)."""
     blocks = [
-        f'<passage id={quoteattr(p.id)} chapter="{p.chapter}" '
+        f"<passage id={quoteattr(p.id)} chapter={quoteattr(_chapter(p))} "
         f"chapter_title={quoteattr(p.chapter_title)}>\n{escape(_capped(p.text))}\n</passage>"
         for p in passages
     ]
