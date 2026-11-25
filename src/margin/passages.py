@@ -5,6 +5,7 @@ it as a LlamaIndex node parser, so passages are LlamaIndex `TextNode`s carrying 
 and paragraph range (ADR 0004).
 """
 
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -36,7 +37,23 @@ class Passage:
             if self.para_start == self.para_end
             else f"¶ {self.para_start}–{self.para_end}"
         )
-        return f"Chapter {self.chapter}, {paras}"
+        return f"{chapter_label(self.chapter, self.chapter_title)}, {paras}"
+
+
+# Titles that already say what they are: "Interlude II", "Chapter IV", "Part 2", "Prologue".
+SELF_LABELLED = re.compile(
+    r"^(chapter|interlude|prologue|epilogue|part|book|act|intro|introduction|outro|"
+    r"afterword|foreword|preface|coda|appendix)\b",
+    re.IGNORECASE,
+)
+
+
+def chapter_label(number: int, title: str) -> str:
+    """How a chapter is named to the author: its own title when that names it ("Interlude II"),
+    otherwise its place in the manuscript ("Chapter 3"). Never a position that clashes with the
+    author's own numbering."""
+    title = title.strip()
+    return title if SELF_LABELLED.match(title) else f"Chapter {number}"
 
 
 def paragraph_ranges(word_counts: Sequence[int], min_words: int, max_words: int) -> list[range]:

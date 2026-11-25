@@ -38,3 +38,23 @@ def test_location_label() -> None:
     p = ps.Passage(4, "Wrecking Of A Life", 12, 14, "text")
     assert p.location == "Chapter 4, ¶ 12–14"
     assert ps.Passage(4, "t", 3, 3, "x").location == "Chapter 4, ¶ 3"
+
+
+def test_a_self_naming_title_is_the_location_and_a_descriptive_one_gets_a_number() -> None:
+    from margin.passages import Passage
+
+    assert Passage(14, "Interlude II", 3, 5, "x").location == "Interlude II, ¶ 3–5"
+    assert Passage(15, "Chapter IV", 2, 2, "x").location == "Chapter IV, ¶ 2"
+    assert Passage(1, "Prologue", 1, 1, "x").location == "Prologue, ¶ 1"
+    assert Passage(1, "The Dance", 5, 6, "x").location == "Chapter 1, ¶ 5–6"
+    assert Passage(2, "Partridge Hill", 1, 1, "x").location == "Chapter 2, ¶ 1"
+
+
+def test_prompts_name_chapters_as_the_author_does() -> None:
+    from margin.passages import Passage
+    from margin.steps.answer import build_prompt
+
+    prompt = build_prompt(
+        "q", [Passage(14, "Interlude II", 3, 5, "x"), Passage(6, "The Dance", 1, 1, "y")]
+    )
+    assert 'chapter="Interlude II"' in prompt and 'chapter="6"' in prompt
