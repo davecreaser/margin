@@ -88,3 +88,4 @@ Drafted 12 of 18 chapters · 6 stubs
 - 2026-11-26: Approved with a 200-word stub threshold, and with a chapter-length chart (median line, stubs greyed) in place of the per-chapter list.
 - 2026-11-26 (build): When a manuscript has no snapshot yet, an ingest with no changes still saves one, so history starts at the next ingest of any kind. Before any snapshot, the page shows the indexed counts.
 - 2026-11-26 (QA in a browser): Checked against a real Google Doc manuscript (target bar, stats, chapter-length chart). The growth chart was checked with sample data in the browser only; nothing was saved.
+- 2026-11-26 (owner feedback): The growth chart looked flat. Two ingests minutes apart were two points, and the axis started at zero. Now the chart has one point per day (the day's last snapshot), "since last time" compares with the previous day, and the axis fits the numbers.

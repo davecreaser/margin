@@ -16,6 +16,7 @@ Input: `$ARGUMENTS`, an idea in words or a GitHub issue (`#12`).
 5. **Review (reviewer agent).** Run it once. Fix every blocking and should-fix finding, or record in the spec why not. Run it again only on fixes to blocking findings.
 6. **QA (qa agent).** Run it once. Fix failing criteria and bugs above nit, then re-run only the affected tests.
 7. **Pull request.**
+   - Update `README.md`: what a user can now do (a short section in "What it does", the command table, eval numbers). If the feature shows something in the page, add or refresh a screenshot in `docs/images/` taken from the demo novel or invented text only, never a private manuscript.
    - Set `Status: done`, push the branch, and open a PR with: a summary, the acceptance criteria as a checklist with evidence, the eval numbers, and a link to the spec (`Closes #N`).
    - Before pushing, scan the diff for secrets and personal details.
    - Watch CI to green.

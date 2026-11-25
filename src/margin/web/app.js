@@ -610,21 +610,26 @@ function renderProgress(p) {
 function renderGrowth(history) {
   const box = $("growth");
   if (history.length < 2) {
-    box.replaceChildren(el("p", { class: "hint" }, "Progress over time appears after your next ingest."));
+    box.replaceChildren(el("p", { class: "hint" }, "Progress over time appears once you've ingested on two different days."));
     return;
   }
   const W = 720, H = 180, L = 52, R = 12, T = 12, B = 28;
   const times = history.map((h) => new Date(h.at).getTime());
   const t0 = times[0], t1 = Math.max(times[times.length - 1], t0 + 1);
-  const max = Math.max(...history.map((h) => h.total)) * 1.08 || 1;
+  // Fit the axis to the numbers, not to zero: a week's words on a whole book's scale is flat.
+  const totals = history.map((h) => h.total);
+  const span = Math.max(Math.max(...totals) - Math.min(...totals), 1000);
+  const step = 10 ** Math.floor(Math.log10(span)) / 2;
+  const lo = Math.max(0, Math.floor((Math.min(...totals) - span * 0.15) / step) * step);
+  const hi = Math.ceil((Math.max(...totals) + span * 0.15) / step) * step;
   const x = (t) => L + ((t - t0) / (t1 - t0)) * (W - L - R);
-  const y = (v) => T + (1 - v / max) * (H - T - B);
+  const y = (v) => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
   const pts = history.map((h, i) => [x(times[i]), y(h.total)]);
   const line = pts.map(([px, py], i) => `${i ? "L" : "M"}${px.toFixed(1)},${py.toFixed(1)}`).join("");
   const area = `${line}L${pts[pts.length - 1][0].toFixed(1)},${H - B}L${pts[0][0].toFixed(1)},${H - B}Z`;
   const chart = svg("svg", { viewBox: `0 0 ${W} ${H}`, class: "growth", role: "img", "aria-label": "Total words over time" });
   for (const f of [0, 0.5, 1]) {
-    const v = Math.round((max / 1.08) * f);
+    const v = Math.round(lo + (hi - lo) * f);
     chart.append(svg("line", { x1: L, x2: W - R, y1: y(v), y2: y(v), class: "grid" }));
     chart.append(svg("text", { x: L - 8, y: y(v) + 4, class: "axis", "text-anchor": "end" }, fmt(v)));
   }

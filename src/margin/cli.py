@@ -448,7 +448,11 @@ def progress(
         growth.append(f"{p['since_last']['words']:+,} words since {day(p['since_last']['since'])}")
     if p["last_7_days"] is not None:
         growth.append(f"{p['last_7_days']:+,} in the last 7 days")
-    out.print(" · ".join(growth) if growth else "[dim]Growth appears after your next ingest.[/dim]")
+    out.print(
+        " · ".join(growth)
+        if growth
+        else "[dim]Growth appears once you've ingested on two different days.[/dim]"
+    )
     out.print()
     width = max(len(c["title"]) for c in p["chapters"]) + 4
     for c in p["chapters"]:

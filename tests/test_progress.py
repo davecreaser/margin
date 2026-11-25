@@ -43,6 +43,16 @@ def test_summary_counts_stubs_growth_and_the_median(tmp_path: Path) -> None:
     assert [h["total"] for h in s["history"]] == [1005, 1505, 4505]
 
 
+def test_several_ingests_in_a_day_are_one_point(tmp_path: Path) -> None:
+    progress.record(tmp_path, "Book", chapters(1000), now=T0)
+    progress.record(tmp_path, "Book", chapters(1000, 0), now=T0 + timedelta(minutes=4))
+    s = progress.summary(tmp_path, "Book", [], stub_words=200, now=T0)
+    assert len(s["history"]) == 1 and s["since_last"] is None
+    progress.record(tmp_path, "Book", chapters(1600, 0), now=T0 + timedelta(days=1))
+    s = progress.summary(tmp_path, "Book", [], stub_words=200, now=T0 + timedelta(days=1))
+    assert [h["total"] for h in s["history"]] == [1000, 1600] and s["since_last"]["words"] == 600
+
+
 def test_summary_before_any_snapshot_uses_the_index(tmp_path: Path) -> None:
     s = progress.summary(tmp_path, "Book", chapters(300, 10), stub_words=200)
     assert s["total"] == 310 and s["history"] == [] and s["since_last"] is None

@@ -90,9 +90,14 @@ def summary(
     drafted = [c for c in chapters if c["words"] >= stub_words]
     median = statistics.median([c["words"] for c in drafted]) if drafted else None
 
+    # One point per day (its last snapshot): several ingests in a day are one step of work.
+    by_day: dict[str, dict[str, Any]] = {}
+    for s in snaps:
+        by_day[s["at"][:10]] = s
+    days = list(by_day.values())
     since_last = None
-    if len(snaps) >= 2:
-        since_last = {"words": total - _total(snaps[-2]), "since": snaps[-2]["at"]}
+    if len(days) >= 2:
+        since_last = {"words": total - _total(days[-2]), "since": days[-2]["at"]}
     week = None
     if snaps:
         cutoff = now - timedelta(days=7)
@@ -121,6 +126,6 @@ def summary(
         "median": median,
         "since_last": since_last,
         "last_7_days": week,
-        "history": [{"at": s["at"], "total": _total(s)} for s in snaps],
+        "history": [{"at": s["at"], "total": _total(s)} for s in days],
         "updated": snaps[-1]["at"] if snaps else None,
     }

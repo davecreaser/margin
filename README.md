@@ -1,14 +1,44 @@
-# Margin
+<h1 align="center">✒️ Margin</h1>
 
-An open-source, self-hosted AI assistant that reads your manuscript the way a good editor does. It never writes a word of your book.
+<p align="center"><b>An AI editor for novelists that reads your whole book, and never writes a word of it.</b></p>
 
-- **Ask:** ask your book a question and get an answer with the passage that proves it, or "not in the manuscript".
-- **Continuity check:** check a new or revised chapter against everything you've already established, with both sides of every contradiction quoted.
-- **Habits report** (later): see the constructions you repeat across the book, counted chapter by chapter.
+<p align="center">
+  Open source · self-hosted · your own API key · every quote verified against your text
+</p>
 
-Every quote Margin shows is checked word for word against your text, in code, before it is shown. Everything runs on your own computer: your manuscript and its index stay local, and only the passages a question needs are sent to the model, with your own API key.
+<p align="center"><img src="docs/images/ask.jpg" alt="Margin answering a question about the demo novel, with each statement cited and the source passage open beside it" width="900"></p>
 
-## Quick start
+Margin reads your manuscript the way a good editor does. Ask it what colour the inn door was in chapter 3, check a new chapter against everything you've already established, and watch the draft grow. It quotes your own words back to you as proof, and when the book doesn't say, it says so.
+
+## ✨ What it does
+
+### 🔎 Ask your book anything
+Ask in plain language and get short answers, each with the exact passage that proves it. Click a citation to read the whole passage with the quote highlighted. If the answer isn't in the manuscript, Margin says **"Not in the manuscript"** instead of guessing.
+
+### 🧵 Catch continuity slips before your readers do
+Paste a new chapter, or pick a Google Docs tab, and Margin checks every factual claim against the rest of the book. Contradictions appear side by side, your new line and the earlier one, with the chapter and paragraph. You see the worst-case cost before anything runs.
+
+<p align="center"><img src="docs/images/check.jpg" alt="Continuity check on an invented chapter: three contradictions with the mule's age and prices, each quoted from both chapters" width="900"></p>
+
+### 📈 See the draft take shape
+Every ingest records each chapter's word count, for free. The Progress view shows your total against your target, which chapters are drafted and which are still outlines, how much you wrote this week, and a chapter-length chart that makes long and short chapters obvious.
+
+<p align="center"><img src="docs/images/progress.jpg" alt="Progress view: 74,058 of 90,000 words, chapters drafted, words this week and a growth chart" width="900"></p>
+<p align="center"><img src="docs/images/chapter-lengths.jpg" alt="Chapter-length chart: one bar per chapter with a dashed line at the median" width="900"></p>
+<p align="center"><sub>Screenshots use the bundled public-domain demo novel. The growth chart shows a sample history.</sub></p>
+
+### 📄 Works where you write
+Use plain-text or Markdown files, a `.docx`, or a **Google Doc with one tab per chapter**. Leave out your notes and cast-list tabs once and Margin remembers. Re-ingesting re-reads only what changed.
+
+### 🛡️ Built to be trusted
+- **Grounded or silent.** Every quote is checked word for word against your stored text, in code, before it's shown. A citation that fails is never displayed.
+- **It never writes prose.** No rewrites, no "continue this scene", no suggested fixes. Your book stays yours.
+- **Private by design.** It runs on your computer. Your manuscript and its index stay local. Only the few passages a question needs go to the model, with your own key.
+- **Honest numbers.** Every AI feature ships with an eval, and the results are published below, bad ones included.
+
+**Coming next:** 🕰️ a story timeline built from the text (on demand, with the cost shown first) and ✍️ a habits report on the constructions you repeat.
+
+## 🚀 Quick start
 
 Margin runs on your machine and is used from the web page at `http://localhost:8000` or the `./margin` command. You need Docker (with about 3 GB of memory free) and an Anthropic API key.
 
@@ -16,7 +46,7 @@ Margin runs on your machine and is used from the web page at `http://localhost:8
 git clone <this repo> margin && cd margin
 cp .env.example .env            # then put your ANTHROPIC_API_KEY in .env
 docker compose up -d            # Elasticsearch + the Margin service
-open http://localhost:8000      # the web page: Ask, Check a chapter, Manuscript
+open http://localhost:8000      # the web page: Ask, Check a chapter, Progress, Manuscript
 ./margin ingest --demo          # or the command line: index the bundled demo novel
 ./margin ask "What did Denry pay for the Widow Hullins's cottage?"
 ```
@@ -64,6 +94,21 @@ CONTRADICTS
 
 Each claim's quote is verified against your chapter and each manuscript quote against the passage, as with Ask; a contradiction the manuscript can't be shown to make is reported as new. Margin never suggests how to fix anything.
 
+### Tracking progress
+
+```
+$ ./margin progress --target 90000
+the-card: 74,058 of 90,000 words (82%)
+Drafted 12 of 12 chapters · 0 stubs (under 200 words)
++8,858 words since 16 Nov · +8,858 in the last 7 days
+
+  1  The Dance ...................   5,762  drafted
+  2  The Widow Hullins's House ...   6,254  drafted
+  …
+```
+
+Snapshots are taken at each ingest (one point per day) and hold numbers and chapter titles only. No model calls.
+
 ### Your own manuscript
 
 Put it in `manuscripts/` (git-ignored, mounted read-only into the service), either as a folder with one `.md` or `.txt` file per chapter, or as one `.md`, `.txt` or `.docx` file with chapter headings (Markdown headings, or lines like `Chapter 3` or `CHAPTER III`):
@@ -107,7 +152,7 @@ While the app's publishing status is *Testing*, Google expires the sign-in after
 - **Re-ingesting.** If nothing changed, re-ingesting is one small request. Otherwise only changed tabs are embedded again.
 - **Where data lives.** The token, the document's state and the vector cache stay in the `margin-data` Docker volume, never in this folder. `docker compose down -v` removes them.
 
-### Commands
+### ⌨️ Commands
 
 | Command | What it does |
 |---|---|
@@ -120,35 +165,41 @@ While the app's publishing status is *Testing*, Google expires the sign-in after
 | `./margin ask … --debug` | Also print statements dropped because their quotes didn't verify |
 | `./margin check <chapter>` | Check a new chapter against the manuscript: contradictions in full, consistent and new as counts |
 | `./margin check … --replaces 6` | Check a revised chapter 6 against the rest of the book, not its old version |
-| `./margin progress` / `--target 80000` | Words against your target, drafted and stub chapters, growth since last time (no model calls) |
 | `./margin check --tab "Chapter 13"` | Check a tab of the ingested Google Doc against the rest of the book |
 | `./margin check … --all` / `--yes` | List consistent and new claims too / don't ask before spending |
+| `./margin progress` / `--target 80000` | Words against your target, drafted and stub chapters, growth since last time (no model calls) |
 
 The same is available over HTTP at `http://localhost:8000` (`GET /status`, `POST /ingest`, `POST /ask` as server-sent events), with OpenAPI docs at `/docs`.
 
-## How it works
+## ⚙️ How it works
 
 1. **Ingest.** The manuscript is split into chapters, and each chapter into passages of whole paragraphs (about 150–400 words) by a LlamaIndex node parser. Passages are embedded locally (`BAAI/bge-small-en-v1.5`, ONNX on CPU) and stored in Elasticsearch.
 2. **Retrieve.** A question runs as BM25 keyword search and kNN vector search; the two rankings are merged with reciprocal rank fusion. Names are BM25's strength, paraphrase is kNN's.
 3. **Answer.** Claude gets the question and the top 8 passages, inside XML tags and escaped, as data. It returns structured output: short statements, each with a passage id and an exact quote.
 4. **Verify.** Every quote is matched against the stored passage (ignoring whitespace, quote marks, dashes and case, never words). A statement with no verified quote is dropped. If nothing survives, the answer is "Not in the manuscript."
 
-Design decisions are in `docs/adr/`, the feature spec in `docs/specs/0001-ask.md`, and the vocabulary in `CONTEXT.md`.
+Design decisions are in `docs/adr/`, what each feature does in `docs/specs/`, and the vocabulary in `CONTEXT.md`.
 
-## Evals
+## 📊 Evals
 
-Every AI feature ships with an eval (`eval/`). The continuity-check eval (`python -m eval.check`) checks eight invented chapters with 21 planted contradictions, including a clean chapter, one written with the published book's values for facts the eval copy changes, and one containing injected instructions. The Ask eval has 60 hand-written cases on a copy of the demo novel with ten facts deliberately changed, so a model answering from memory of the published book gets them wrong. It covers single and multi-passage facts, rare names, paraphrase, questions the book doesn't answer, an injected-instructions passage, and requests to write prose.
+Every AI feature ships with an eval in `eval/`, run by hand (never in CI) with a dry run first. These are the committed baselines:
+
+| Feature | Set | Result |
+|---|---|---|
+| Ask (Claude Opus 5.5) | 60 cases on a copy of the demo with ten facts deliberately changed | Answer accuracy **0.91** · abstention **1.0** · counterfactual **1.0** · injection and prose requests **1.0** · multi-passage **0.7** · failed citations shown: **0** |
+| Continuity check (Claude Sonnet 5.5, 3 runs) | 8 invented chapters, 21 planted contradictions | Recall **0.92** · precision **1.0** · counterfactual **0.92** · false alarms on the clean chapter: **0** · ≈ $0.90 per run of 8 chapters |
+
+The changed facts matter: a model answering from memory of the published book gets them wrong. The check eval was also run with Claude Opus 5.5 as the judge, which scored worse (recall 0.84) at twice the cost, so Sonnet is the default.
 
 ```sh
 uv sync
 uv run python -m eval.ask --dry-run          # cases and worst-case cost, no calls
 uv run python -m eval.ask --retrieval-only   # BM25 vs kNN vs hybrid, no model calls
 uv run python -m eval.ask                    # the full eval (needs ANTHROPIC_API_KEY)
+uv run python -m eval.check --dry-run
 ```
 
-Results are in `eval/ask/baseline-<model>.json`; see `docs/specs/0001-ask.md` for the bar.
-
-## Development
+## 🧑‍💻 Development
 
 ```sh
 uv sync
@@ -156,5 +207,7 @@ uv run ruff check && uv run mypy && uv run pytest
 ```
 
 Tests use a fake model client; nothing in CI calls a model.
+
+Contributions are welcome. New features go through a spec in `docs/specs/` first.
 
 MIT licensed.
