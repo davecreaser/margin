@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     service_url: str = "http://localhost:8000"
     # Token, Google Docs state and the passage-vector cache. /data (a volume) in Docker.
     data_dir: Path = Path(".margin")
+    # Where the web page lists local manuscripts from (mounted read-only in Docker).
+    manuscripts_dir: Path = Path("manuscripts")
 
     # Google Docs (spec 0003): the author's own OAuth client, from .env.
     google_client_id: str | None = Field(default=None, validation_alias="GOOGLE_CLIENT_ID")

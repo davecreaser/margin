@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Margin</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%239b3d2a'/%3E%3Cpath d='M9 23V9l7 9 7-9v14' fill='none' stroke='%23fff' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="mark" aria-hidden="true">M</span>
+      <span class="name">Margin</span>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Views">
+      <button role="tab" id="tab-ask" aria-controls="view-ask" aria-selected="true">Ask</button>
+      <button role="tab" id="tab-check" aria-controls="view-check" aria-selected="false">Check a chapter</button>
+      <button role="tab" id="tab-manuscript" aria-controls="view-manuscript" aria-selected="false">Manuscript</button>
+    </nav>
+    <div class="status" id="status" aria-live="polite">Connecting…</div>
+  </header>
+
+  <div class="banner" id="banner" role="alert" hidden></div>
+
+  <main>
+    <!-- Ask -->
+    <section class="view" id="view-ask" role="tabpanel" aria-labelledby="tab-ask">
+      <form class="ask" id="ask-form">
+        <label for="question" class="visually-hidden">Your question about the manuscript</label>
+        <textarea id="question" rows="2" placeholder="Ask about your manuscript: who, what, when, where…" required></textarea>
+        <button type="submit" class="primary" id="ask-button">Ask</button>
+      </form>
+      <p class="hint">Every quote is checked against your manuscript before it's shown. Enter asks; Shift+Enter adds a line.</p>
+      <div id="answer" class="answer" aria-live="polite"></div>
+    </section>
+
+    <!-- Check -->
+    <section class="view" id="view-check" role="tabpanel" aria-labelledby="tab-check" hidden>
+      <div class="segmented" role="radiogroup" aria-label="Chapter source">
+        <label><input type="radio" name="check-source" value="tab" checked> A Google Docs tab</label>
+        <label><input type="radio" name="check-source" value="paste"> Paste text</label>
+      </div>
+      <form id="check-form" class="stack">
+        <div id="check-tab-fields" class="field">
+          <label for="check-tab">Tab</label>
+          <select id="check-tab"></select>
+          <p class="hint" id="check-tab-hint"></p>
+        </div>
+        <div id="check-paste-fields" class="stack" hidden>
+          <div class="field">
+            <label for="check-title">Chapter title</label>
+            <input id="check-title" placeholder="Chapter 13">
+          </div>
+          <div class="field">
+            <label for="check-text">Chapter text</label>
+            <textarea id="check-text" rows="10" placeholder="Paste the chapter. Paragraphs are separated by blank lines."></textarea>
+          </div>
+        </div>
+        <div class="row">
+          <button type="submit" class="secondary" id="estimate-button">Estimate cost</button>
+        </div>
+      </form>
+      <div id="check-plan" class="plan" hidden></div>
+      <div id="check-results" aria-live="polite"></div>
+    </section>
+
+    <!-- Manuscript -->
+    <section class="view" id="view-manuscript" role="tabpanel" aria-labelledby="tab-manuscript" hidden>
+      <div id="indexed" class="card"></div>
+
+      <h2>Index a manuscript</h2>
+      <p class="hint">Indexing replaces what's indexed now. Margin only reads your manuscript, never writes to it.</p>
+
+      <div class="card stack">
+        <h3>Google Doc</h3>
+        <div id="google-state" class="hint"></div>
+        <form id="gdoc-form" class="row">
+          <label for="gdoc-link" class="visually-hidden">Google Doc link</label>
+          <input id="gdoc-link" placeholder="https://docs.google.com/document/d/…" autocomplete="off">
+          <button type="submit" class="secondary">Show tabs</button>
+        </form>
+        <div id="gdoc-tabs" hidden>
+          <p class="hint">Untick tabs that aren't the book, such as notes or a cast list. Margin remembers your choice for this document.</p>
+          <ul id="tab-list" class="tab-list"></ul>
+          <div class="field">
+            <label for="gdoc-patterns">Also leave out tabs matching</label>
+            <input id="gdoc-patterns" placeholder="Draft*, Old *" autocomplete="off">
+          </div>
+          <div class="row">
+            <button class="primary" id="gdoc-ingest">Index</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card stack">
+        <h3>Files</h3>
+        <p class="hint" id="files-hint"></p>
+        <div class="row">
+          <label for="file-pick" class="visually-hidden">Manuscript folder or file</label>
+          <select id="file-pick"></select>
+          <button class="secondary" id="file-ingest">Index</button>
+        </div>
+      </div>
+
+      <div class="card row spread">
+        <div>
+          <h3>Demo novel</h3>
+          <p class="hint">The Card by Arnold Bennett (1911, public domain): 12 chapters, about 74,000 words.</p>
+        </div>
+        <button class="secondary" id="demo-ingest">Index the demo</button>
+      </div>
+
+      <div id="ingest-result" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <aside class="panel" id="panel" hidden aria-labelledby="panel-title">
+    <div class="panel-head">
+      <div>
+        <div class="panel-kicker" id="panel-kicker">Passage</div>
+        <h2 id="panel-title"></h2>
+      </div>
+      <button class="icon" id="panel-close" aria-label="Close passage">×</button>
+    </div>
+    <div class="panel-body prose" id="panel-body"></div>
+  </aside>
+</body>
+</html>

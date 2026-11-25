@@ -161,6 +161,13 @@ class ElasticIndex:
             passages=count,
         )
 
+    def get(self, passage_id: str) -> Passage | None:
+        """One passage by id, for showing a citation's whole passage."""
+        try:
+            return _passage(self._call(self.es.get, index=self.alias, id=passage_id)["_source"])
+        except NotFoundError:
+            return None
+
     def _hits(self, response: Any) -> list[tuple[Passage, float]]:
         return [(_passage(h["_source"]), float(h["_score"])) for h in response["hits"]["hits"]]
 
