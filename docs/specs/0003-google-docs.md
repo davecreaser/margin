@@ -21,7 +21,7 @@ Terms are from `CONTEXT.md`.
   - `margin google login` prints a Google sign-in link. After the author allows access, Google redirects to the local service (`localhost:8000`), which stores the token in the service's data volume (never in the repo or the image).
   - The only scope is read-only access to Google Docs (`documents.readonly`).
   - `margin google logout` deletes the token and revokes it with Google.
-  - The OAuth client ID and secret are the author's own, in `.env` (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`). The README walks through creating them. A missing client gives "Google Docs isn't set up: see README, Google Docs".
+  - The OAuth client ID and secret are the author's own, in `.env` (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`). The README walks through creating them. A missing client gives "Google Docs isn't set up: add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env, then docker compose up -d --force-recreate margin (README, Google Docs)".
 - **AC-2 Ingest a Google Doc.**
   - `margin ingest <Google Doc link or id>` reads the document with all its tabs, in tab order (child tabs after their parent).
   - Each tab with text is one chapter, titled by the tab's name. A tab that itself contains several chapter headings is split by them, with the same rules as a local file.

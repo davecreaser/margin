@@ -38,7 +38,10 @@ class NotSetUpError(GoogleError):
     status = 412
 
     def __init__(self) -> None:
-        super().__init__("Google Docs isn't set up: see README, Google Docs")
+        super().__init__(
+            "Google Docs isn't set up: add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env, "
+            "then docker compose up -d --force-recreate margin (README, Google Docs)"
+        )
 
 
 class SignInNeededError(GoogleError):
@@ -54,7 +57,7 @@ class BadClientError(GoogleError):
     def __init__(self) -> None:
         super().__init__(
             "Google rejected the OAuth client: check GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET "
-            "in .env, then docker compose up -d"
+            "in .env, then docker compose up -d --force-recreate margin"
         )
 
 

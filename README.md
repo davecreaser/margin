@@ -90,7 +90,7 @@ If your book is a Google Doc with one tab per chapter, Margin can read it direct
    GOOGLE_CLIENT_ID=1234-abc.apps.googleusercontent.com
    GOOGLE_CLIENT_SECRET=GOCSPX-...
    ```
-   Then restart Margin: `docker compose up -d`.
+   Then restart Margin so it reads them: `docker compose up -d --force-recreate margin` (a plain `up -d` keeps the running service and its old settings).
 6. **Sign in.** Run `./margin google login`, open the link it prints, and allow access. Google warns that it "hasn't verified this app": that's expected for your own private client. Click *Continue*.
 
 While the app's publishing status is *Testing*, Google expires the sign-in after 7 days, and `./margin google login` signs you in again. To stay signed in, set the status to *In production* under *Audience*. A personal app with under 100 users needs no review by Google; the unverified-app warning stays.
