@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+.env.*
+!.env.example
+.claude/settings.local.json
+.DS_Store
+# Eval transcripts and run reports stay local; only baselines are committed.
+eval/runs/
+# Never commit a private manuscript.
+private/
