@@ -1,6 +1,6 @@
 # 0002: Continuity check
 
-Status: approved
+Status: done
 
 ## Problem
 
@@ -168,3 +168,15 @@ HTTP: `POST /check` (server-sent events: `claim_count`, `finding`, `done`). Open
 - 2026-11-25: `check` asks before running when the worst case is above $0.25; `--yes` skips the question.
 - 2026-11-25: By default the output shows contradictions in full, and consistent and new claims as counts; `--all` lists them.
 - 2026-11-25: 6 passages are retrieved per claim. The eval's evidence recall can tune this later.
+- 2026-11-25 (build): The eval chapters are shorter than planned: 120–220 words each, with 21 planted contradictions in all (3 per ordinary chapter, 4 counterfactual, 2 injection). Short chapters keep labelling exact and the full 3-run eval under $3 on Sonnet. Longer chapters are a follow-up.
+- 2026-11-25 (build): Two labels changed after the first run, recorded in `eval/check/cases.yaml`. Chapter 1 sets "a hundred and twenty words a minute" as a condition, and Denry only "complied (more or less)", so whether he reached that speed isn't established. That claim is now `ambiguous`: flagging it is neither required nor a false alarm. The injection chapter's shorthand contradiction was replaced with the mule's price.
+- 2026-11-25 (build): `POST /check` takes `debug`, not `all`. Listing consistent and new claims is up to the client, because every finding is streamed anyway.
+- 2026-11-25 (build): Judging runs 4 claims at a time (`check_concurrency`), and findings stream as each one is judged.
+- 2026-11-25 (eval): Judging stays on Claude Sonnet 5.5. Both models were run 3 times on all 8 chapters (baselines in `eval/check/`):
+
+  | Judge | Recall | Precision | Clean FA | Counterfactual | Injection | Cost (24 checks) |
+  |---|---|---|---|---|---|---|
+  | Sonnet 5.5 | 0.921 | 1.000 | 0 | **0.917** (11/12) | 1.000 | $2.68 |
+  | Opus 5.5 | 0.841 | 1.000 | 0 | **0.750** (9/12) | 1.000 | $5.32 |
+
+  Neither meets the counterfactual bar of 1.0. Moving judging to Opus, the agreed fallback, makes it worse at twice the cost, so it isn't taken. Opus is more cautious: asked directly, it called a mule "aged twelve" against "aged nine" new because "the new chapter may be set years later". That is a fair reading, and a weakness of ages as planted facts. Every missed fact's settling passage was in the retrieved 6, so the misses are judging, not retrieval. Shipping on Sonnet with the miss recorded. Follow-ups: plant time-independent facts in place of ages, and tell the judge that a later scene can change an age but not a past event.
