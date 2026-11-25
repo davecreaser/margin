@@ -21,12 +21,26 @@ docker compose up -d            # Elasticsearch + the Margin service
 ```
 
 ```
-Denry bought the Widow Hullins's cottage for forty-five pounds [1].
+Denry bought the Widow Hullins's cottage for forty-five pounds. [1]
+He paid thirty pounds in cash, with the remaining balance deducted gradually from his weekly commission. [2]
 
-[1] Chapter 2, ¶ 84–92
+[1] Chapter 2, ¶ 95–96
     "he actually did buy the Widow Hullins's half-a-crown-a-week cottage for forty-five pounds"
+[2] Chapter 2, ¶ 95–96
+    "of which he paid thirty pounds in cash and arranged that the balance should be deducted gradually from his weekly commission"
 
-claude-opus-5-5 · 4,812 in / 291 out · ≈ $0.025
+claude-opus-5-5 · 7,334 in / 292 out · ≈ $0.035
+```
+
+And when the book doesn't say:
+
+```
+$ ./margin ask "What colour were Denry's eyes?"
+Not in the manuscript.
+
+Closest passages:
+  Chapter 11, ¶ 115–129 "Our two stars simultaneously eclipsed!" said Denry, as the Clutterbucks…
+  …
 ```
 
 The demo novel is *The Card* by Arnold Bennett (1911), in the public domain (`src/margin/demo/SOURCE.md`).
