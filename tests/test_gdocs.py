@@ -356,3 +356,14 @@ def test_api_reports_google_errors_as_messages(
     r = client.post("/ingest", json={"google_doc": "https://example.com/x"})
     assert r.json()["error"] == "That isn't a Google Doc link"
     assert client.get("/google/status").json()["signed_in"] is False
+
+
+def test_a_tab_with_only_its_heading_stays_as_an_empty_chapter(tmp_path: Path) -> None:
+    doc = document()
+    doc["tabs"].append(
+        tab("t.4", "Chapter 9", [para("Chapter 9 - In which nothing is written yet", "HEADING_1")])
+    )
+    index, emb = FakeIndex(), CountingEmbedder()
+    r = _ingest(FakeDocs(doc), index, emb, tmp_path, ["Notes*"])
+    assert r.chapters[-1] == {"number": 5, "title": "Chapter 9", "words": 0}
+    assert not any("nothing is written" in t for t in emb.embedded)  # no passage for it

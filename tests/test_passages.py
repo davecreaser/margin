@@ -58,3 +58,11 @@ def test_prompts_name_chapters_as_the_author_does() -> None:
         "q", [Passage(14, "Interlude II", 3, 5, "x"), Passage(6, "The Dance", 1, 1, "y")]
     )
     assert 'chapter="Interlude II"' in prompt and 'chapter="6"' in prompt
+
+
+def test_a_chapter_with_no_text_has_no_passages() -> None:
+    from margin.manuscript import Chapter, Manuscript
+    from margin.passages import split
+
+    m = Manuscript("m", [Chapter(1, "Chapter X", []), Chapter(2, "Two", ["Some words here."])])
+    assert [p.id for p in split(m, 150, 400)] == ["2:1-1"]
