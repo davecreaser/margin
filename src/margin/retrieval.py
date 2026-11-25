@@ -40,12 +40,16 @@ class Retriever:
         self.rrf_k = rrf_k
 
     def retrieve(
-        self, question: str, mode: Mode = "hybrid", k: int | None = None
+        self,
+        question: str,
+        mode: Mode = "hybrid",
+        k: int | None = None,
+        exclude_chapter: int | None = None,
     ) -> list[Retrieved]:
         k = k or self.top_k
-        bm25 = self.store.bm25(question, self.candidates) if mode != "knn" else []
+        bm25 = self.store.bm25(question, self.candidates, exclude_chapter) if mode != "knn" else []
         knn = (
-            self.store.knn(self.embedder.embed_query(question), self.candidates)
+            self.store.knn(self.embedder.embed_query(question), self.candidates, exclude_chapter)
             if mode != "bm25"
             else []
         )

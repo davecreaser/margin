@@ -42,25 +42,35 @@ class InMemoryStore:
         self.passages = passages
         self.vectors = vectors
 
-    def bm25(self, question: str, k: int) -> list[tuple[Passage, float]]:
+    def bm25(
+        self, question: str, k: int, exclude_chapter: int | None = None
+    ) -> list[tuple[Passage, float]]:
         q = set(_tokens(question))
         df = Counter(t for p in self.passages for t in set(_tokens(p.text)))
         n = len(self.passages)
         scored = []
         for p in self.passages:
+            if p.chapter == exclude_chapter:
+                continue
             tf = Counter(_tokens(p.text))
             s = sum(tf[t] * math.log(1 + n / df[t]) for t in q if tf[t])
             if s > 0:
                 scored.append((p, s))
         return sorted(scored, key=lambda x: -x[1])[:k]
 
-    def knn(self, vector: list[float], k: int) -> list[tuple[Passage, float]]:
+    def knn(
+        self, vector: list[float], k: int, exclude_chapter: int | None = None
+    ) -> list[tuple[Passage, float]]:
         def cos(a: list[float], b: list[float]) -> float:
             na = math.sqrt(sum(x * x for x in a)) or 1.0
             nb = math.sqrt(sum(x * x for x in b)) or 1.0
             return sum(x * y for x, y in zip(a, b, strict=True)) / (na * nb)
 
-        scored = [(p, cos(vector, v)) for p, v in zip(self.passages, self.vectors, strict=True)]
+        scored = [
+            (p, cos(vector, v))
+            for p, v in zip(self.passages, self.vectors, strict=True)
+            if p.chapter != exclude_chapter
+        ]
         return sorted(scored, key=lambda x: -x[1])[:k]
 
     def stats(self) -> IndexStats:

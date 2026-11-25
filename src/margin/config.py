@@ -39,6 +39,19 @@ class Settings(BaseSettings):
     answer_effort: str = "low"
     answer_max_tokens: int = 4000
 
+    # Continuity check (spec 0002)
+    claims_model: str = "claude-sonnet-5-5"
+    claims_effort: str = "low"
+    claims_max_tokens: int = 6000
+    judge_model: str = "claude-sonnet-5-5"
+    judge_effort: str = "low"
+    judge_max_tokens: int = 1500
+    claim_cap: int = 40
+    check_top_k: int = 6
+    section_words: int = 3000
+    check_concurrency: int = 4
+    confirm_above_usd: float = 0.25
+
 
 def estimate_cost(model: str, input_tokens: int, output_tokens: int) -> float | None:
     """Estimated cost in US dollars, or None for a model without a known price."""

@@ -3,7 +3,7 @@
 An open-source, self-hosted AI assistant that reads your manuscript the way a good editor does. It never writes a word of your book.
 
 - **Ask:** ask your book a question and get an answer with the passage that proves it, or "not in the manuscript".
-- **Continuity check** (next): check a new chapter against everything you've already established.
+- **Continuity check:** check a new or revised chapter against everything you've already established, with both sides of every contradiction quoted.
 - **Habits report** (later): see the constructions you repeat across the book, counted chapter by chapter.
 
 Every quote Margin shows is checked word for word against your text, in code, before it is shown. Everything runs on your own computer: your manuscript and its index stay local, and only the passages a question needs are sent to the model, with your own API key.
@@ -45,6 +45,24 @@ Closest passages:
 
 The demo novel is *The Card* by Arnold Bennett (1911), in the public domain (`src/margin/demo/SOURCE.md`).
 
+### Checking a chapter
+
+```
+$ ./margin check manuscripts/market-day.md
+Checking "Market Day" (175 words) against the-card: 12 chapters, 212 passages.
+Worst case: claims + up to 40 judging calls with claude-sonnet-5-5 ≈ $1.26.
+Found 12 claims.
+
+CONTRADICTS
+2. The mule's age: twelve in the claim, but seven in an earlier chapter.
+   This chapter, ¶ 1      "The mule, aged twelve and as wise as any alderman"
+   Chapter 6, ¶ 1–2       "It was aged seven, and it had cost Denry ten pounds."
+…
+4 contradictions · 1 consistent · 7 new  (--all to list them)
+```
+
+Each claim's quote is verified against your chapter and each manuscript quote against the passage, as with Ask; a contradiction the manuscript can't be shown to make is reported as new. Margin never suggests how to fix anything.
+
 ### Your own manuscript
 
 Put it in `manuscripts/` (git-ignored, mounted read-only into the service), either as a folder with one `.md` or `.txt` file per chapter, or as one `.md`, `.txt` or `.docx` file with chapter headings (Markdown headings, or lines like `Chapter 3` or `CHAPTER III`):
@@ -65,6 +83,9 @@ Ingesting again replaces the index completely. Margin never writes to your files
 | `./margin ask "<question>"` | Answer with verified citations, or "Not in the manuscript." |
 | `./margin ask … --show-passages` | Also print the retrieved passages, with BM25, kNN and fused scores |
 | `./margin ask … --debug` | Also print statements dropped because their quotes didn't verify |
+| `./margin check <chapter>` | Check a new chapter against the manuscript: contradictions in full, consistent and new as counts |
+| `./margin check … --replaces 6` | Check a revised chapter 6 against the rest of the book, not its old version |
+| `./margin check … --all` / `--yes` | List consistent and new claims too / don't ask before spending |
 
 The same is available over HTTP at `http://localhost:8000` (`GET /status`, `POST /ingest`, `POST /ask` as server-sent events), with OpenAPI docs at `/docs`.
 
@@ -79,7 +100,7 @@ Design decisions are in `docs/adr/`, the feature spec in `docs/specs/0001-ask.md
 
 ## Evals
 
-Every AI feature ships with an eval (`eval/`). The Ask eval has 60 hand-written cases on a copy of the demo novel with ten facts deliberately changed, so a model answering from memory of the published book gets them wrong. It covers single and multi-passage facts, rare names, paraphrase, questions the book doesn't answer, an injected-instructions passage, and requests to write prose.
+Every AI feature ships with an eval (`eval/`). The continuity-check eval (`python -m eval.check`) checks eight invented chapters with 21 planted contradictions, including a clean chapter, one written with the published book's values for facts the eval copy changes, and one containing injected instructions. The Ask eval has 60 hand-written cases on a copy of the demo novel with ten facts deliberately changed, so a model answering from memory of the published book gets them wrong. It covers single and multi-passage facts, rare names, paraphrase, questions the book doesn't answer, an injected-instructions passage, and requests to write prose.
 
 ```sh
 uv sync

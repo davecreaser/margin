@@ -12,12 +12,13 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from margin import ask as ask_mod
+from margin import check as check_mod
 from margin.config import DEMO_DIR, DEMO_TITLE, Settings
 from margin.embedding import FastEmbedder
 from margin.index import ElasticIndex, SearchFailedError, SearchUnavailableError
 from margin.ingest import ingest
 from margin.llm import AnthropicClient, ModelBusyError, NoApiKeyError, api_key_present
-from margin.manuscript import NoChaptersError
+from margin.manuscript import Chapter, NoChaptersError
 from margin.retrieval import Mode, Retriever
 
 PRIVACY = (
@@ -142,3 +143,40 @@ def post_ask(request: AskRequest) -> StreamingResponse:
     )
     stream = ask_mod.events(result, show_passages=request.show_passages, debug=request.debug)
     return StreamingResponse(_sse(stream), media_type="text/event-stream")
+
+
+class CheckRequest(BaseModel):
+    title: str
+    paragraphs: list[str]
+    replaces: int | None = None
+    debug: bool = False
+
+
+@app.post("/check")
+def post_check(request: CheckRequest) -> Any:
+    chapter = Chapter(
+        number=0, title=request.title, paragraphs=[p for p in request.paragraphs if p.strip()]
+    )
+    if not chapter.paragraphs:
+        return _error(422, f"{request.title} has no text to check")
+    client = AnthropicClient()  # fails fast when there is no key
+    if index().stats().passages == 0:
+        raise ask_mod.EmptyIndexError()
+
+    def events() -> Iterator[tuple[str, Any]]:
+        try:
+            for name, data in check_mod.run(
+                chapter,
+                retriever=retriever(),
+                store=index(),
+                client=client,
+                settings=settings(),
+                replaces=request.replaces,
+            ):
+                if name == "debug" and not request.debug:
+                    continue
+                yield name, data
+        except (ModelBusyError, SearchUnavailableError, SearchFailedError, NoApiKeyError) as e:
+            yield "error", {"message": str(e)}
+
+    return StreamingResponse(_sse(events()), media_type="text/event-stream")

@@ -187,3 +187,19 @@ def _from_folder(folder: Path) -> list[Chapter]:
                 break
         chapters.append(Chapter(number=0, title=title, paragraphs=_paragraphs(lines)))
     return chapters
+
+
+def load_chapter(path: Path) -> Chapter:
+    """One chapter to check: its first heading (if any) is the title, the rest is its text."""
+    if path.suffix.lower() not in SINGLE_FILE_SUFFIXES or not path.is_file():
+        return Chapter(number=0, title=path.stem)
+    lines = _docx_lines(path) if path.suffix.lower() == ".docx" else _text_lines(path)
+    title = path.stem
+    for i, line in enumerate(lines):
+        if line.strip():
+            if (heading := _heading(line)) is not None:
+                title, lines = heading, lines[i + 1 :]
+            break
+    # Later headings inside the chapter are kept as text.
+    lines = [m.group("title") if (m := MARKDOWN_HEADING.match(x.strip())) else x for x in lines]
+    return Chapter(number=0, title=title, paragraphs=_paragraphs(lines))

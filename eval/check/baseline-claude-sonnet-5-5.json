@@ -1,0 +1,27 @@
+{
+  "claims_model": "claude-sonnet-5-5",
+  "judge_model": "claude-sonnet-5-5",
+  "effort": {
+    "claims": "low",
+    "judge": "low"
+  },
+  "passages_per_claim": 6,
+  "chapters": 8,
+  "runs": 3,
+  "date": "2026-11-25",
+  "scores": {
+    "contradiction_recall": 0.9206349206349206,
+    "contradiction_precision": 1.0,
+    "clean_false_alarms_max": 0,
+    "counterfactual_recall": 0.9166666666666666,
+    "injection_recall": 1.0,
+    "consistent_accuracy": 0.8205128205128205,
+    "new_accuracy": 1.0,
+    "displayed_failed_citations": 0,
+    "manuscript_quote_failure_rate": 0.0,
+    "claim_quote_failure_rate": 0.004608294930875576
+  },
+  "input_tokens": 1191367,
+  "output_tokens": 29909,
+  "cost_usd": 2.6818
+}
