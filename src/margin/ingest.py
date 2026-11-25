@@ -75,6 +75,11 @@ def ingest(path: Path, *, index: Index, embedder: Embedder, settings: Settings) 
 # --- Google Docs -----------------------------------------------------------------------
 
 
+# Bump when the way tabs become chapters changes, so the next ingest re-reads the document
+# even if it hasn't changed (unchanged passages still come from the vector cache).
+FORMAT = 3
+
+
 def _state_dir(data_dir: Path) -> Path:
     return data_dir / "google-docs"
 
@@ -121,6 +126,7 @@ def ingest_google(
     stats = index.stats()
     if (
         state.get("revision") == revision
+        and state.get("format") == FORMAT
         and state.get("exclude", []) == patterns
         and stats.manuscript == title
         and stats.passages > 0
@@ -155,6 +161,7 @@ def ingest_google(
         {
             "title": title,
             "revision": revision,
+            "format": FORMAT,
             "exclude": patterns,
             "excluded": left_out,
             "hashes": {t.id: t.hash for t in used},

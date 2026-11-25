@@ -88,6 +88,7 @@ def chapter_documents(manuscript: Manuscript) -> list[Document]:
             metadata={"chapter": chapter.number, "chapter_title": chapter.title},
         )
         for chapter in manuscript.chapters
+        if chapter.paragraphs  # a chapter with no text yet has no passages
     ]
 
 

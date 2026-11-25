@@ -17,6 +17,7 @@ from margin import ask as ask_mod
 from margin import check as check_mod
 from margin import gdocs
 from margin import ingest as ingest_mod
+from margin import progress as progress_mod
 from margin.config import DEMO_DIR, DEMO_TITLE, Settings
 from margin.embed_cache import CachedEmbedder
 from margin.embedding import FastEmbedder
@@ -179,6 +180,7 @@ def post_ingest(request: IngestRequest) -> Any:
             )
         except NoChaptersError as e:
             return _error(422, str(e))
+        _snapshot(result)
         return {**asdict(result), "label": f'"{result.manuscript}" from Google Docs'}
     if request.demo:
         path, label = DEMO_DIR, DEMO_TITLE
@@ -195,7 +197,37 @@ def post_ingest(request: IngestRequest) -> Any:
         )
     except NoChaptersError as e:
         return _error(422, str(e))
+    _snapshot(result)
     return {**asdict(result), "label": label}
+
+
+def _snapshot(result: ingest_mod.IngestResult) -> None:
+    progress_mod.record(
+        settings().data_dir, result.manuscript, result.chapters, changed=not result.unchanged
+    )
+
+
+@app.get("/progress")
+def get_progress() -> Any:
+    stats = index().stats()
+    if not stats.manuscript:
+        return _error(409, "Nothing is indexed yet: ingest a manuscript first")
+    return progress_mod.summary(
+        settings().data_dir, stats.manuscript, stats.chapters, stub_words=settings().stub_words
+    )
+
+
+class TargetRequest(BaseModel):
+    target: int | None
+
+
+@app.post("/progress/target")
+def post_target(request: TargetRequest) -> Any:
+    stats = index().stats()
+    if not stats.manuscript:
+        return _error(409, "Nothing is indexed yet: ingest a manuscript first")
+    progress_mod.set_target(settings().data_dir, stats.manuscript, request.target)
+    return get_progress()
 
 
 class AskRequest(BaseModel):

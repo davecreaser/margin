@@ -239,11 +239,13 @@ def from_tabs(
     chapters: list[Chapter] = []
     by_tab: dict[str, list[int]] = {}
     for tab_id, title, lines in tabs:
-        for c in chapters_from_tab(title, lines):
-            if c.paragraphs:
-                chapters.append(c)
-                c.number = len(chapters)
-                by_tab.setdefault(tab_id, []).append(c.number)
-    if not chapters:
+        found = [c for c in chapters_from_tab(title, lines) if c.paragraphs]
+        # A tab holding only its heading is an outlined chapter not yet written: it stays,
+        # with no text, so it shows as a stub rather than vanishing.
+        for c in found or [Chapter(number=0, title=title)]:
+            chapters.append(c)
+            c.number = len(chapters)
+            by_tab.setdefault(tab_id, []).append(c.number)
+    if not any(c.paragraphs for c in chapters):
         raise NoChaptersError(name)
     return Manuscript(name=name, chapters=chapters), by_tab

@@ -18,6 +18,7 @@
     <nav class="tabs" role="tablist" aria-label="Views">
       <button role="tab" id="tab-ask" aria-controls="view-ask" aria-selected="true">Ask</button>
       <button role="tab" id="tab-check" aria-controls="view-check" aria-selected="false">Check a chapter</button>
+      <button role="tab" id="tab-progress" aria-controls="view-progress" aria-selected="false">Progress</button>
       <button role="tab" id="tab-manuscript" aria-controls="view-manuscript" aria-selected="false">Manuscript</button>
     </nav>
     <div class="status" id="status" aria-live="polite">Connecting…</div>
@@ -65,6 +66,28 @@
       </form>
       <div id="check-plan" class="plan" hidden></div>
       <div id="check-results" aria-live="polite"></div>
+    </section>
+
+    <!-- Progress -->
+    <section class="view" id="view-progress" role="tabpanel" aria-labelledby="tab-progress" hidden>
+      <div class="card">
+        <div class="panel-kicker" id="progress-name"></div>
+        <div class="big-number"><span id="progress-total"></span><span class="of" id="progress-of"></span></div>
+        <div class="target-bar" id="target-bar" hidden><span></span></div>
+        <form class="row target-form" id="target-form">
+          <label for="target-input">Target</label>
+          <input id="target-input" type="number" min="0" step="1000" placeholder="80000">
+          <button class="secondary" type="submit">Save</button>
+        </form>
+        <div class="stats" id="progress-stats"></div>
+      </div>
+
+      <h2>Over time</h2>
+      <div class="card" id="growth"></div>
+
+      <h2>Chapter lengths</h2>
+      <p class="hint" id="lengths-hint"></p>
+      <div class="card lengths" id="lengths"></div>
     </section>
 
     <!-- Manuscript -->

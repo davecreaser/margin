@@ -78,6 +78,8 @@ New features go through `/feature` (`.claude/skills/feature/`):
 4. QA (qa agent)
 5. pull request, with CI watched to green
 
+Every feature's pull request updates `README.md`, which doubles as the product's front page: the feature section, the commands, eval numbers, and screenshots from the demo novel in `docs/images/`.
+
 The owner approves the spec and merges pull requests.
 
 Agents push feature branches only. `.claude/hooks/block-dangerous-git.sh` blocks pushes to main, force-pushes and merging PRs.
