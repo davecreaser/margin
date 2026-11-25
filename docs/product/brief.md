@@ -65,9 +65,9 @@ Each step is a spec in `docs/specs/` and ships with its eval.
 2. **Continuity check** (spec 0002, done): `margin check chapter.md` extracts the chapter's factual claims, retrieves the passages they touch, and sorts each claim into contradicts, consistent, or new. Eval: chapters with planted contradictions, measuring how many it catches and how many false alarms it raises.
 3. **Google Docs and a living manuscript** (spec 0003, done): ingest a Google Doc, one chapter per tab; re-ingesting embeds only what changed.
 4. **Web page** (spec 0004, done): Ask, Check and Manuscript in the browser at `localhost:8000`.
-5. **Progress tracker** (spec 0005): word counts per chapter at every ingest, against the author's target, over time. No model calls.
-6. **Timeline** (spec 0006): the story's events in story order, each with its quote, generated only when the author asks, with the cost shown first.
-7. **Habits report**: `margin habits` finds repeated constructions across the manuscript (simile shapes, "as if/as though", stock gestures) with deterministic patterns, groups and counts them by chapter, and shows each instance in context. An LLM is used only to name the groups. It also checks the author's own house style, with deterministic rules the author sets: spelling variety (British or American), scene-break and heading formats, and similar. Eval: hand-labelled instances, measuring how many it finds and how many are real.
+5. **Progress tracker** (spec 0005, done): word counts per chapter at every ingest, against the author's target, over time. No model calls.
+6. **Timeline** (spec 0006, done): the story's events in story order, each with its quote, generated only when the author asks, with the cost shown first.
+7. **Habits report** (spec 0007): `margin habits` finds repeated constructions across the manuscript (simile shapes, "as if/as though", stock gestures) with deterministic patterns, groups and counts them by chapter, and shows each instance in context. No model calls: it's free to run. It also checks the author's own house style, with deterministic rules the author sets: spelling variety (British or American), scene-break and heading formats, and similar. Eval: hand-labelled instances, measuring how many it finds and how many are real.
 
 ## How it compares
 
