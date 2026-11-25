@@ -194,12 +194,56 @@ def load_chapter(path: Path) -> Chapter:
     if path.suffix.lower() not in SINGLE_FILE_SUFFIXES or not path.is_file():
         return Chapter(number=0, title=path.stem)
     lines = _docx_lines(path) if path.suffix.lower() == ".docx" else _text_lines(path)
-    title = path.stem
+    return chapter_from_lines(path.stem, lines)
+
+
+def chapter_from_lines(title: str, lines: list[str]) -> Chapter:
+    """One chapter: a heading on its first line is its title; later headings are kept as text."""
     for i, line in enumerate(lines):
         if line.strip():
             if (heading := _heading(line)) is not None:
                 title, lines = heading, lines[i + 1 :]
             break
-    # Later headings inside the chapter are kept as text.
     lines = [m.group("title") if (m := MARKDOWN_HEADING.match(x.strip())) else x for x in lines]
     return Chapter(number=0, title=title, paragraphs=_paragraphs(lines))
+
+
+def chapters_from_tab(title: str, lines: list[str]) -> list[Chapter]:
+    """A Google Docs tab is one chapter titled by the tab, unless it holds several chapter
+    headings, when it is split by them like a single file."""
+    starts = [i for i, line in enumerate(lines) if _chapter_heading(line)]
+    if len(starts) > 1:
+        out = []
+        if (opening := chapter_from_lines(title, lines[: starts[0]])).paragraphs:
+            out.append(opening)
+        for a, b in zip(starts, [*starts[1:], len(lines)], strict=True):
+            out.append(chapter_from_lines(title, lines[a:b]))
+        return out
+    chapter = chapter_from_lines(title, lines)
+    chapter.title = title  # the tab's name is what the author sees in Docs
+    return [chapter]
+
+
+def _chapter_heading(line: str) -> bool:
+    """A "Chapter N" heading, as a plain line or a Docs heading; scene subheadings aren't."""
+    stripped = line.strip()
+    if m := MARKDOWN_HEADING.match(stripped):
+        stripped = m.group("title").strip()
+    return _chapter_line(stripped)
+
+
+def from_tabs(
+    name: str, tabs: list[tuple[str, str, list[str]]]
+) -> tuple[Manuscript, dict[str, list[int]]]:
+    """The manuscript, and which chapter numbers each tab (by id) became."""
+    chapters: list[Chapter] = []
+    by_tab: dict[str, list[int]] = {}
+    for tab_id, title, lines in tabs:
+        for c in chapters_from_tab(title, lines):
+            if c.paragraphs:
+                chapters.append(c)
+                c.number = len(chapters)
+                by_tab.setdefault(tab_id, []).append(c.number)
+    if not chapters:
+        raise NoChaptersError(name)
+    return Manuscript(name=name, chapters=chapters), by_tab

@@ -61,17 +61,33 @@ def status() -> None:
 
 @app.command()
 def ingest(
-    path: Annotated[
-        Path | None, typer.Argument(help="Folder of chapter files, or one file")
+    source: Annotated[
+        str | None,
+        typer.Argument(help="Folder of chapter files, one file, or a Google Doc link"),
     ] = None,
     demo: Annotated[bool, typer.Option(help="Index the bundled demo novel")] = False,
+    exclude: Annotated[
+        list[str] | None,
+        typer.Option(help='Google Docs: leave out tabs matching this (e.g. "Notes*"); repeatable'),
+    ] = None,
 ) -> None:
-    """Index a manuscript (replaces whatever was indexed before). Source files are only read."""
-    if not demo and path is None:
-        _fail("Give a path, or --demo")
-    body = {"demo": True} if demo else {"path": str(path.resolve())}  # type: ignore[union-attr]
+    """Index a manuscript (replaces whatever was indexed before). Sources are only read."""
+    from margin.gdocs import looks_like_google_doc
+
+    if not demo and source is None:
+        _fail("Give a path or a Google Doc link, or --demo")
+    body: dict[str, Any]
+    if demo:
+        body = {"demo": True}
+    elif looks_like_google_doc(source or ""):
+        body = {"google_doc": source, "exclude": exclude}
+    else:
+        body = {"path": str(Path(source or "").resolve())}
     with err.status("Reading and indexing…"):
         r = _request("POST", "/ingest", json=body)
+    if r.get("source") == "google":
+        _google_ingest_summary(r)
+        return
     out.print(f"Reading {r['label']}", markup=False)
     width = max(len(c["title"]) for c in r["chapters"]) + 4
     for c in r["chapters"]:
@@ -183,7 +199,10 @@ def _finding(f: dict[str, Any]) -> None:
 
 @app.command()
 def check(
-    path: Annotated[Path, typer.Argument(help="One chapter: .md, .txt or .docx")],
+    path: Annotated[Path | None, typer.Argument(help="One chapter: .md, .txt or .docx")] = None,
+    tab: Annotated[
+        str | None, typer.Option(help="A tab of the ingested Google Doc, in place of a file")
+    ] = None,
     replaces: Annotated[
         int | None, typer.Option(help="Leave out this indexed chapter (when revising it)")
     ] = None,
@@ -197,20 +216,35 @@ def check(
 ) -> None:
     """Check a new or revised chapter against the indexed manuscript. Never rewrites it."""
     from margin.check import worst_case_cost
-    from margin.manuscript import load_chapter
+    from margin.manuscript import Chapter, load_chapter
 
-    if not path.is_file():
-        _fail(f"{path} not found")
-    chapter = load_chapter(path)
-    if not chapter.paragraphs:
-        _fail(f"{path.name} has no text to check")
+    if (path is None) == (tab is None):
+        _fail("Give a chapter file, or --tab with a tab of the ingested Google Doc")
     s = _request("GET", "/status")
     if s["passages"] == 0:
         _fail("Nothing is indexed yet: run ./margin ingest --demo, or ./margin ingest <path>")
+    leave_out: int | list[int] | None = replaces
+    if tab is not None:
+        t = _request("POST", "/google/tab", json={"name": tab})
+        chapter = Chapter(0, t["title"], t["paragraphs"])
+        if replaces is None and t["replaces"]:
+            leave_out = t["replaces"]
+    else:
+        assert path is not None
+        if not path.is_file():
+            _fail(f"{path} not found")
+        chapter = load_chapter(path)
+    if not chapter.paragraphs:
+        _fail(f"{chapter.title} has no text to check")
+    shown = ", ".join(map(str, leave_out)) if isinstance(leave_out, list) else leave_out
+    plural = "s" if isinstance(leave_out, list) and len(leave_out) > 1 else ""
+    against = (
+        f"the rest of {s['manuscript']} (it replaces chapter{plural} {shown})"
+        if leave_out is not None
+        else f"{s['manuscript']}: {s['chapters']} chapters, {s['passages']} passages"
+    )
     out.print(
-        f'Checking "{chapter.title}" ({chapter.words:,} words) against {s["manuscript"]}: '
-        f"{s['chapters']} chapters, {s['passages']} passages.",
-        markup=False,
+        f'Checking "{chapter.title}" ({chapter.words:,} words) against {against}.', markup=False
     )
     settings = Settings()
     worst = worst_case_cost(chapter.words, settings)
@@ -225,7 +259,7 @@ def check(
     body = {
         "title": chapter.title,
         "paragraphs": chapter.paragraphs,
-        "replaces": replaces,
+        "replaces": leave_out,
         "debug": debug,
     }
     listed: dict[str, list[dict[str, Any]]] = {"consistent": [], "new": [], "not_checked": []}
@@ -300,3 +334,83 @@ def _check_summary(
         f"\n[dim]{', '.join(done['models'])} · {done['calls']} calls · {done['input_tokens']:,} in / "
         f"{done['output_tokens']:,} out · ≈ ${done['cost']:.3f}[/dim]"
     )
+
+
+def _google_ingest_summary(r: dict[str, Any]) -> None:
+    excluded = r["tabs_excluded"]
+    left_out = f" Excluded: {', '.join(excluded)}." if excluded else ""
+    if r["unchanged"]:
+        out.print(
+            f'"{r["manuscript"]}": no changes since the last ingest. '
+            f"{len(r['chapters'])} chapters, {r['passages']} passages.{left_out}",
+            markup=False,
+        )
+        return
+    read, reused = r["tabs_read"], r["tabs_reused"]
+    changed = f" ({', '.join(read)})" if read and reused and len(read) <= 5 else ""
+    out.print(
+        f"{r['label']}: {len(read)} tabs read{changed}, {len(reused)} unchanged.{left_out}",
+        markup=False,
+    )
+    width = max(len(c["title"]) for c in r["chapters"]) + 4
+    for c in r["chapters"]:
+        out.print(
+            f"{c['number']:>3}  {c['title'] + ' ':.<{width}} {c['words']:>7,} words", markup=False
+        )
+    embedded = r.get("passages_embedded")
+    new = f" ({embedded} newly embedded)" if embedded is not None else ""
+    out.print(
+        f"{len(r['chapters'])} chapters, {r['words']:,} words, {r['passages']} passages{new}. "
+        f"Indexed in {r['seconds']:.0f}s."
+    )
+    if r["exclude"]:
+        out.print(f"[dim]Excluding tabs matching: {escape(', '.join(r['exclude']))} "
+                  "(remembered; --exclude \"\" clears)[/dim]")  # fmt: skip
+
+
+google = typer.Typer(help="Read your manuscript from Google Docs (read-only).")
+app.add_typer(google, name="google")
+
+
+@google.command()
+def login() -> None:
+    """Give Margin read-only access to your Google Docs."""
+    import time
+
+    before = _request("GET", "/google/status")["signed_in_at"]
+    url = _request("GET", "/google/login")["url"]
+    out.print("Open this link to give Margin read-only access to your Google Docs:")
+    out.print(url, markup=False, soft_wrap=True)
+    with err.status("Waiting for Google…"):
+        for _ in range(300):
+            if _request("GET", "/google/status")["signed_in_at"] not in (None, before):
+                out.print("[green]Signed in.[/green]")
+                return
+            time.sleep(1)
+    _fail("Timed out waiting for Google: run ./margin google login again")
+
+
+@google.command()
+def logout() -> None:
+    """Forget the Google token and revoke it with Google."""
+    if _request("POST", "/google/logout")["revoked"]:
+        out.print("Signed out; Margin's access to your Google Docs is revoked.")
+    else:
+        out.print(
+            "Token deleted here, but Google didn't confirm the revoke: remove Margin's access "
+            "at https://myaccount.google.com/permissions"
+        )
+
+
+@google.command("status")
+def google_status() -> None:
+    """Show whether Google Docs is set up and signed in."""
+    s = _request("GET", "/google/status")
+    if not s["configured"]:
+        out.print(
+            "Not set up: add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env (README, Google Docs)"
+        )
+    else:
+        out.print("Signed in." if s["signed_in"] else "Not signed in: ./margin google login")
+    if s["current"]:
+        out.print(f'Ingested: "{s["current"]["title"]}"', markup=False)

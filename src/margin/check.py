@@ -94,7 +94,7 @@ def run(
     store: PassageStore,
     client: ModelClient,
     settings: Settings,
-    replaces: int | None = None,
+    replaces: int | list[int] | None = None,
 ) -> Iterator[tuple[str, Any]]:
     """Events: claim_count, finding (one per claim, as judged), debug, done."""
     s = settings

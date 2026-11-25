@@ -31,6 +31,10 @@ def reply(output: BaseModel | None, stop_reason: str = "end_turn") -> ModelReply
     return ModelReply(output=output, input_tokens=4000, output_tokens=300, stop_reason=stop_reason)
 
 
+def _excluded(chapter: int | list[int] | None) -> list[int]:
+    return [] if chapter is None else chapter if isinstance(chapter, list) else [chapter]
+
+
 def _tokens(text: str) -> list[str]:
     return re.findall(r"[a-z]+", text.lower())
 
@@ -43,14 +47,14 @@ class InMemoryStore:
         self.vectors = vectors
 
     def bm25(
-        self, question: str, k: int, exclude_chapter: int | None = None
+        self, question: str, k: int, exclude_chapter: int | list[int] | None = None
     ) -> list[tuple[Passage, float]]:
         q = set(_tokens(question))
         df = Counter(t for p in self.passages for t in set(_tokens(p.text)))
         n = len(self.passages)
         scored = []
         for p in self.passages:
-            if p.chapter == exclude_chapter:
+            if p.chapter in _excluded(exclude_chapter):
                 continue
             tf = Counter(_tokens(p.text))
             s = sum(tf[t] * math.log(1 + n / df[t]) for t in q if tf[t])
@@ -59,7 +63,7 @@ class InMemoryStore:
         return sorted(scored, key=lambda x: -x[1])[:k]
 
     def knn(
-        self, vector: list[float], k: int, exclude_chapter: int | None = None
+        self, vector: list[float], k: int, exclude_chapter: int | list[int] | None = None
     ) -> list[tuple[Passage, float]]:
         def cos(a: list[float], b: list[float]) -> float:
             na = math.sqrt(sum(x * x for x in a)) or 1.0
@@ -69,7 +73,7 @@ class InMemoryStore:
         scored = [
             (p, cos(vector, v))
             for p, v in zip(self.passages, self.vectors, strict=True)
-            if p.chapter != exclude_chapter
+            if p.chapter not in _excluded(exclude_chapter)
         ]
         return sorted(scored, key=lambda x: -x[1])[:k]
 
