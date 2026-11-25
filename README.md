@@ -10,13 +10,14 @@ Every quote Margin shows is checked word for word against your text, in code, be
 
 ## Quick start
 
-You need Docker (with about 3 GB of memory free) and an Anthropic API key.
+Margin runs on your machine and is used from the web page at `http://localhost:8000` or the `./margin` command. You need Docker (with about 3 GB of memory free) and an Anthropic API key.
 
 ```sh
 git clone <this repo> margin && cd margin
 cp .env.example .env            # then put your ANTHROPIC_API_KEY in .env
 docker compose up -d            # Elasticsearch + the Margin service
-./margin ingest --demo          # index the bundled demo novel
+open http://localhost:8000      # the web page: Ask, Check a chapter, Manuscript
+./margin ingest --demo          # or the command line: index the bundled demo novel
 ./margin ask "What did Denry pay for the Widow Hullins's cottage?"
 ```
 

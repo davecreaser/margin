@@ -9,7 +9,8 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from margin import ask as ask_mod
@@ -21,7 +22,7 @@ from margin.embed_cache import CachedEmbedder
 from margin.embedding import FastEmbedder
 from margin.index import ElasticIndex, SearchFailedError, SearchUnavailableError
 from margin.llm import AnthropicClient, ModelBusyError, NoApiKeyError, api_key_present
-from margin.manuscript import Chapter, NoChaptersError
+from margin.manuscript import SINGLE_FILE_SUFFIXES, Chapter, NoChaptersError, chapter_from_lines
 from margin.retrieval import Mode, Retriever
 
 PRIVACY = (
@@ -30,6 +31,42 @@ PRIVACY = (
 )
 
 app = FastAPI(title="Margin", description="Ask your manuscript questions; every quote verified.")
+
+WEB = Path(__file__).parent / "web"
+app.mount("/static", StaticFiles(directory=WEB), name="static")
+
+
+@app.get("/", include_in_schema=False)
+def page() -> FileResponse:
+    """The web page (spec 0004): plain HTML, CSS and JS over this same API."""
+    return FileResponse(WEB / "index.html")
+
+
+@app.get("/manuscripts")
+def manuscripts() -> dict[str, Any]:
+    """What's in the manuscripts folder, for choosing what to ingest."""
+    root = settings().manuscripts_dir
+    if not root.is_dir():
+        return {"folder": str(root), "items": []}
+    items = [
+        {"path": str(p), "name": p.name, "kind": "folder" if p.is_dir() else "file"}
+        for p in sorted(root.iterdir(), key=lambda p: p.name.lower())
+        if not p.name.startswith(".") and (p.is_dir() or p.suffix.lower() in SINGLE_FILE_SUFFIXES)
+    ]
+    return {"folder": str(root), "items": items}
+
+
+class PassageRequest(BaseModel):
+    id: str
+
+
+@app.post("/passage")
+def passage(request: PassageRequest) -> Any:
+    """One indexed passage, so a client can show the whole passage behind a citation."""
+    p = index().get(request.id)
+    if p is None:
+        return _error(404, "That passage isn't in the index any more: ask again")
+    return {"id": p.id, "location": p.location, "chapter_title": p.chapter_title, "text": p.text}
 
 
 @cache
@@ -112,6 +149,7 @@ def status() -> dict[str, Any]:
         "index": stats.name,
         "manuscript": stats.manuscript,
         "chapters": len(stats.chapters),
+        "chapter_list": stats.chapters,
         "passages": stats.passages,
         "model": settings().answer_model,
         "api_key": api_key_present(),
@@ -205,6 +243,35 @@ def _tab_chapter(name: str) -> dict[str, Any]:
         "paragraphs": chapter.paragraphs,
         "words": chapter.words,
         "replaces": replaces,
+    }
+
+
+class EstimateRequest(BaseModel):
+    title: str = ""
+    text: str = ""
+    tab: str | None = None
+
+
+@app.post("/check/estimate")
+def check_estimate(request: EstimateRequest) -> Any:
+    """The chapter as it will be checked, what it is checked against, and the worst-case cost,
+    before any model call."""
+    if request.tab:
+        chapter = _tab_chapter(request.tab)
+    else:
+        c = chapter_from_lines(request.title.strip() or "Untitled", request.text.split("\n"))
+        if request.title.strip():
+            c.title = request.title.strip()
+        chapter = {"title": c.title, "paragraphs": c.paragraphs, "words": c.words, "replaces": None}
+    if not chapter["paragraphs"]:
+        return _error(422, f"{chapter['title']} has no text to check")
+    s = settings()
+    return {
+        **chapter,
+        "worst_case": check_mod.worst_case_cost(chapter["words"], s),
+        "confirm_above": s.confirm_above_usd,
+        "claim_cap": s.claim_cap,
+        "models": sorted({s.claims_model, s.judge_model}),
     }
 
 
