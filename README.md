@@ -3,15 +3,86 @@
 An open-source, self-hosted AI assistant that reads your manuscript the way a good editor does. It never writes a word of your book.
 
 - **Ask:** ask your book a question and get an answer with the passage that proves it, or "not in the manuscript".
-- **Continuity check:** check a new chapter against everything you've already established.
-- **Habits report:** see the constructions you repeat across the book, counted chapter by chapter.
+- **Continuity check** (next): check a new chapter against everything you've already established.
+- **Habits report** (later): see the constructions you repeat across the book, counted chapter by chapter.
 
-Every quote Margin shows is checked word for word against your text. Everything runs on your own computer: your manuscript and its index stay local, and only the passages a request needs are sent to the model, with your own API key.
+Every quote Margin shows is checked word for word against your text, in code, before it is shown. Everything runs on your own computer: your manuscript and its index stay local, and only the passages a question needs are sent to the model, with your own API key.
 
-> Status: early. The design is in `docs/`; the first feature (Ask) is next.
+## Quick start
 
-- Product brief: `docs/product/brief.md`
-- Vocabulary: `CONTEXT.md`
-- Decisions: `docs/adr/`
+You need Docker (with about 3 GB of memory free) and an Anthropic API key.
+
+```sh
+git clone <this repo> margin && cd margin
+cp .env.example .env            # then put your ANTHROPIC_API_KEY in .env
+docker compose up -d            # Elasticsearch + the Margin service
+./margin ingest --demo          # index the bundled demo novel
+./margin ask "What did Denry pay for the Widow Hullins's cottage?"
+```
+
+```
+Denry bought the Widow Hullins's cottage for forty-five pounds [1].
+
+[1] Chapter 2, ¶ 84–92
+    "he actually did buy the Widow Hullins's half-a-crown-a-week cottage for forty-five pounds"
+
+claude-opus-5-5 · 4,812 in / 291 out · ≈ $0.025
+```
+
+The demo novel is *The Card* by Arnold Bennett (1911), in the public domain (`src/margin/demo/SOURCE.md`).
+
+### Your own manuscript
+
+Put it in `manuscripts/` (git-ignored, mounted read-only into the service), either as a folder with one `.md` or `.txt` file per chapter, or as one `.md`, `.txt` or `.docx` file with chapter headings (Markdown headings, or lines like `Chapter 3` or `CHAPTER III`):
+
+```sh
+./margin ingest manuscripts/my-novel
+./margin ask "What colour is the door of the inn?"
+```
+
+Ingesting again replaces the index completely. Margin never writes to your files.
+
+### Commands
+
+| Command | What it does |
+|---|---|
+| `./margin status` | Whether Margin is ready, what is indexed, and what is sent to the model |
+| `./margin ingest <path>` / `--demo` | Index a manuscript |
+| `./margin ask "<question>"` | Answer with verified citations, or "Not in the manuscript." |
+| `./margin ask … --show-passages` | Also print the retrieved passages, with BM25, kNN and fused scores |
+| `./margin ask … --debug` | Also print statements dropped because their quotes didn't verify |
+
+The same is available over HTTP at `http://localhost:8000` (`GET /status`, `POST /ingest`, `POST /ask` as server-sent events), with OpenAPI docs at `/docs`.
+
+## How it works
+
+1. **Ingest.** The manuscript is split into chapters, and each chapter into passages of whole paragraphs (about 150–400 words) by a LlamaIndex node parser. Passages are embedded locally (`BAAI/bge-small-en-v1.5`, ONNX on CPU) and stored in Elasticsearch.
+2. **Retrieve.** A question runs as BM25 keyword search and kNN vector search; the two rankings are merged with reciprocal rank fusion. Names are BM25's strength, paraphrase is kNN's.
+3. **Answer.** Claude gets the question and the top 8 passages, inside XML tags and escaped, as data. It returns structured output: short statements, each with a passage id and an exact quote.
+4. **Verify.** Every quote is matched against the stored passage (ignoring whitespace, quote marks, dashes and case, never words). A statement with no verified quote is dropped. If nothing survives, the answer is "Not in the manuscript."
+
+Design decisions are in `docs/adr/`, the feature spec in `docs/specs/0001-ask.md`, and the vocabulary in `CONTEXT.md`.
+
+## Evals
+
+Every AI feature ships with an eval (`eval/`). The Ask eval has 60 hand-written cases on a copy of the demo novel with ten facts deliberately changed, so a model answering from memory of the published book gets them wrong. It covers single and multi-passage facts, rare names, paraphrase, questions the book doesn't answer, an injected-instructions passage, and requests to write prose.
+
+```sh
+uv sync
+uv run python -m eval.ask --dry-run          # cases and worst-case cost, no calls
+uv run python -m eval.ask --retrieval-only   # BM25 vs kNN vs hybrid, no model calls
+uv run python -m eval.ask                    # the full eval (needs ANTHROPIC_API_KEY)
+```
+
+Results are in `eval/ask/baseline-<model>.json`; see `docs/specs/0001-ask.md` for the bar.
+
+## Development
+
+```sh
+uv sync
+uv run ruff check && uv run mypy && uv run pytest
+```
+
+Tests use a fake model client; nothing in CI calls a model.
 
 MIT licensed.

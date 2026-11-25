@@ -37,7 +37,7 @@ class Settings(BaseSettings):
 
     answer_model: str = "claude-opus-5-5"
     answer_effort: str = "low"
-    answer_max_tokens: int = 16000
+    answer_max_tokens: int = 4000
 
 
 def estimate_cost(model: str, input_tokens: int, output_tokens: int) -> float | None:
