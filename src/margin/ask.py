@@ -4,6 +4,7 @@ Grounded or silent (ADR 0001): a statement whose citations all fail is dropped, 
 citation is never shown, and if nothing survives the answer is "Not in the manuscript."
 """
 
+import html
 import time
 from collections.abc import Iterator
 from dataclasses import dataclass, field
@@ -16,6 +17,8 @@ from margin.passages import Passage
 from margin.retrieval import Mode, Retrieved, Retriever
 from margin.steps import answer as answer_step
 from margin.verify import quote_in_passage
+
+MAX_STATEMENTS = 4  # AC-5: a short answer of 1-4 sentences
 
 Outcome = Literal["answer", "not_in_manuscript", "prose_request"]
 
@@ -111,7 +114,7 @@ def run(
         return result
 
     seen: dict[tuple[str, str], int] = {}
-    for statement in output.statements:
+    for statement in output.statements[:MAX_STATEMENTS]:
         verified: list[int] = []
         failed: list[dict[str, str]] = []
         for c in statement.citations:
@@ -124,11 +127,12 @@ def run(
             key = (passage.id, c.quote)
             if key not in seen:
                 seen[key] = len(result.citations) + 1
-                result.citations.append(ShownCitation(seen[key], passage, c.quote))
+                quote = html.unescape(c.quote)  # the prompt escaped it; show it as written
+                result.citations.append(ShownCitation(seen[key], passage, quote))
             if seen[key] not in verified:
                 verified.append(seen[key])
         if verified:
-            result.statements.append(ShownStatement(statement.text, verified))
+            result.statements.append(ShownStatement(html.unescape(statement.text), verified))
             if failed:
                 result.dropped.append({"statement": statement.text, "failed": failed, "kept": True})
         else:

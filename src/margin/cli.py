@@ -8,6 +8,7 @@ from typing import Annotated, Any
 import httpx
 import typer
 from rich.console import Console
+from rich.markup import escape
 
 from margin.config import Settings
 
@@ -23,7 +24,7 @@ def _url(path: str) -> str:
 
 
 def _fail(message: str) -> None:
-    err.print(f"[red]{message}[/red]")
+    err.print(f"[red]{escape(message)}[/red]")
     raise typer.Exit(1)
 
 
@@ -49,7 +50,9 @@ def status() -> None:
     """Show whether Margin is ready and what is indexed."""
     s = _request("GET", "/status")
     out.print("[green]Ready[/green]")
-    out.print(f"Index: {s['index']}" + (f" ({s['manuscript']})" if s["manuscript"] else ""))
+    out.print(
+        f"Index: {s['index']}" + (f" ({s['manuscript']})" if s["manuscript"] else ""), markup=False
+    )
     out.print(f"Chapters: {s['chapters']}  Passages: {s['passages']}")
     key = "set" if s["api_key"] else "missing: add ANTHROPIC_API_KEY to .env"
     out.print(f"Model: {s['model']}  API key: {key}")
@@ -69,10 +72,12 @@ def ingest(
     body = {"demo": True} if demo else {"path": str(path.resolve())}  # type: ignore[union-attr]
     with err.status("Reading and indexing…"):
         r = _request("POST", "/ingest", json=body)
-    out.print(f"Reading {r['label']}")
+    out.print(f"Reading {r['label']}", markup=False)
     width = max(len(c["title"]) for c in r["chapters"]) + 4
     for c in r["chapters"]:
-        out.print(f"{c['number']:>3}  {c['title'] + ' ':.<{width}} {c['words']:>7,} words")
+        out.print(
+            f"{c['number']:>3}  {c['title'] + ' ':.<{width}} {c['words']:>7,} words", markup=False
+        )
     minutes, seconds = divmod(int(r["seconds"]), 60)
     took = f"{minutes}m {seconds}s" if minutes else f"{seconds}s"
     out.print(
@@ -133,12 +138,12 @@ def ask(
                     f"  {p['location']:<22} {p['score']:.4f}  BM25 {_rank(p['bm25_rank'], p['bm25_score'])}"
                     f"  kNN {_rank(p['knn_rank'], p['knn_score'])}"
                 )
-                out.print(f"    [dim]{p['snippet']}[/dim]")
+                out.print(f"    [dim]{escape(p['snippet'])}[/dim]")
             out.print()
         elif name == "answer_delta":
             markers = "".join(f" [{n}]" for n in data["citations"])
             answer.append(data["text"] + markers)
-            out.print(data["text"] + markers)
+            out.print(data["text"] + markers, markup=False)
         elif name == "citation":
             if data["n"] == 1:
                 out.print()
@@ -147,11 +152,16 @@ def ask(
         elif name == "debug":
             if data["kind"] == "failed_citation":
                 state = "kept (other citations verified)" if data["kept"] else "DROPPED"
-                out.print(f"[yellow][debug] statement {state}:[/yellow] {data['statement']}")
+                out.print(
+                    f"[yellow]\\[debug] statement {state}:[/yellow] {escape(data['statement'])}"
+                )
                 for f in data["failed"]:
-                    out.print(f"[yellow]  failed quote ({f['passage_id']}):[/yellow] {f['quote']}")
+                    out.print(
+                        f"[yellow]  failed quote ({f['passage_id']}):[/yellow] {escape(f['quote'])}"
+                    )
             else:
-                out.print(f"[yellow][debug] {data['kind']}: {data.get('error')}[/yellow]")
+                detail = escape(f"{data['kind']}: {data.get('error')}")
+                out.print(f"[yellow]\\[debug] {detail}[/yellow]")
         elif name == "done":
             if data["closest"]:
                 out.print("\nClosest passages:")

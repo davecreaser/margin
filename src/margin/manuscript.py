@@ -11,7 +11,7 @@ TEXT_SUFFIXES = {".md", ".txt"}
 SINGLE_FILE_SUFFIXES = TEXT_SUFFIXES | {".docx"}
 
 # "# Title", "## Chapter 3", "Chapter 3", "CHAPTER III", "Chapter 12: The Card"
-MARKDOWN_HEADING = re.compile(r"^#{1,3}\s+(?P<title>.+?)\s*#*\s*$")
+MARKDOWN_HEADING = re.compile(r"^(?P<hashes>#{1,3})\s+(?P<title>.+?)\s*#*\s*$")
 CHAPTER_LINE = re.compile(
     r"^(?:chapter|CHAPTER|Chapter)\s+(?P<num>\d+|[IVXLCDM]+|[ivxlcdm]+)\b[\s.:\-–—]*(?P<rest>.*)$"
 )
@@ -112,30 +112,61 @@ def _paragraphs(lines: list[str]) -> list[str]:
     return paragraphs
 
 
-def _heading(line: str) -> str | None:
-    """The chapter title if this line is a chapter heading."""
+def _chapter_line(stripped: str) -> bool:
+    """ "Chapter 3", "CHAPTER III", "Chapter 12: The Card", but not "Chapter 5 of the lease was torn." """
+    m = CHAPTER_LINE.match(stripped)
+    if m is None or len(stripped) > 80:
+        return False
+    rest = m.group("rest").strip()
+    return not rest or not (rest[0].islower() or rest[-1] in ".,;!?")
+
+
+def _heading(line: str, level: int | None = None) -> str | None:
+    """The chapter title if this line is a chapter heading (at `level`, for Markdown)."""
     stripped = line.strip()
     if m := MARKDOWN_HEADING.match(stripped):
-        return m.group("title").strip()
-    if (m := CHAPTER_LINE.match(stripped)) and len(stripped) <= 80:
+        if level is None or len(m.group("hashes")) == level:
+            return m.group("title").strip()
+        return None
+    if _chapter_line(stripped):
         return stripped
     return None
+
+
+def _chapter_level(lines: list[str]) -> int | None:
+    """The Markdown heading level that marks chapters: the shallowest used more than once."""
+    levels = [
+        len(m.group("hashes")) for line in lines if (m := MARKDOWN_HEADING.match(line.strip()))
+    ]
+    if not levels:
+        return None
+    repeated = sorted({lvl for lvl in levels if levels.count(lvl) > 1})
+    return repeated[0] if repeated else min(levels)
 
 
 def _from_headings(lines: list[str]) -> list[Chapter]:
     chapters: list[Chapter] = []
     body: list[str] = []
     title: str | None = None
+    level = _chapter_level(lines)
 
     def flush() -> None:
         if title is not None:
             chapters.append(Chapter(number=0, title=title, paragraphs=_paragraphs(body)))
 
     for line in lines:
-        heading = _heading(line)
+        heading = _heading(line, level)
         if heading is not None:
             flush()
             title, body = heading, []
+        elif MARKDOWN_HEADING.match(line.strip()) and level is not None:
+            m = MARKDOWN_HEADING.match(line.strip())
+            assert m is not None
+            if len(m.group("hashes")) < level:  # a book title above the chapters
+                flush()
+                title, body = None, []
+            else:  # a scene subheading inside a chapter: keep its text
+                body.append(m.group("title"))
         else:
             body.append(line)  # text before the first heading (front matter) is ignored
     flush()
