@@ -7,7 +7,7 @@ import os
 from dataclasses import dataclass
 from typing import Literal, Protocol, cast
 
-from pydantic import BaseModel
+from pydantic import BaseModel, TypeAdapter, ValidationError
 
 KEY_PLACEHOLDERS = {"", "your-key-here"}
 
@@ -46,6 +46,13 @@ class ModelClient(Protocol):
     ) -> ModelReply[T]: ...
 
 
+def _schema(model: type[BaseModel]) -> dict[str, object]:
+    """The JSON schema the API's structured outputs accept, as the SDK builds it."""
+    from anthropic.lib._parse._transform import transform_schema
+
+    return transform_schema(TypeAdapter(model).json_schema())
+
+
 def api_key_present() -> bool:
     return os.environ.get("ANTHROPIC_API_KEY", "").strip() not in KEY_PLACEHOLDERS
 
@@ -71,13 +78,15 @@ class AnthropicClient:
     ) -> ModelReply[T]:
         a = self._anthropic
         try:
-            response = self._client.messages.parse(
+            response = self._client.messages.create(
                 model=model,
                 max_tokens=max_tokens,
                 system=system,
                 messages=[{"role": "user", "content": user}],
-                output_format=schema,
-                output_config={"effort": cast(Effort, effort)},
+                output_config={
+                    "effort": cast(Effort, effort),
+                    "format": {"type": "json_schema", "schema": _schema(schema)},
+                },
             )
         except a.AuthenticationError as e:
             raise NoApiKeyError() from e
@@ -87,14 +96,19 @@ class AnthropicClient:
             if e.status_code in (429, 529) or e.status_code >= 500:
                 raise ModelBusyError() from e
             raise
-        except ValueError as e:  # structured output that fails validation
-            return ModelReply(None, 0, 0, None, error=f"invalid structured output: {e}")
+        # Usage and stop reason are read before validation, so a truncated or refused
+        # reply is still counted and reported (and a refusal is not retried).
         usage = response.usage
-        output = response.parsed_output
+        output: T | None = None
         error = None
-        if response.stop_reason in ("refusal", "max_tokens") or output is None:
+        text = "".join(b.text for b in response.content if b.type == "text")
+        if response.stop_reason in ("refusal", "max_tokens"):
             error = f"no usable output (stop reason: {response.stop_reason})"
-            output = None
+        else:
+            try:
+                output = schema.model_validate_json(text)
+            except ValidationError as e:
+                error = f"invalid structured output: {e.error_count()} error(s)"
         return ModelReply(
             output=output,
             input_tokens=usage.input_tokens,

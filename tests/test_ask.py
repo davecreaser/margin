@@ -171,3 +171,14 @@ def test_empty_index_says_how_to_ingest() -> None:
         ask.run(
             "Anything?", retriever=retriever, store=store, client=FakeClient(), settings=Settings()
         )
+
+
+def test_truncated_reply_is_not_retried_and_its_tokens_are_counted() -> None:
+    from margin.llm import ModelReply
+
+    cut: ModelReply[AnswerOutput] = ModelReply(None, 5000, 4000, "max_tokens", error="cut")
+    client, retriever, store = _setup(cut)
+    result = _run(client, retriever, store)
+    assert len(client.calls) == 1
+    assert (result.input_tokens, result.output_tokens) == (5000, 4000)
+    assert result.outcome == "not_in_manuscript"

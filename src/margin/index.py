@@ -8,6 +8,7 @@ import time
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from elastic_transport import ConnectionTimeout
 from elasticsearch import ApiError, Elasticsearch, NotFoundError
 from elasticsearch import ConnectionError as ESConnectionError
 from elasticsearch.helpers import bulk
@@ -18,6 +19,15 @@ from margin.passages import Passage
 class SearchUnavailableError(RuntimeError):
     def __init__(self) -> None:
         super().__init__("Search index isn't running: start it with docker compose up -d")
+
+
+class SearchFailedError(RuntimeError):
+    pass
+
+
+EMBEDDING_CHANGED = (
+    "The index was built with a different embedding model: run ./margin ingest again"
+)
 
 
 @dataclass
@@ -54,7 +64,7 @@ class ElasticIndex:
     def _call(self, fn: Any, *args: Any, **kwargs: Any) -> Any:
         try:
             return fn(*args, **kwargs)
-        except ESConnectionError as e:
+        except (ESConnectionError, ConnectionTimeout) as e:
             raise SearchUnavailableError() from e
 
     def ping(self) -> bool:
@@ -155,11 +165,23 @@ class ElasticIndex:
                 size=k,
                 source_excludes=["vector"],
             )
-        except (NotFoundError, ApiError):
-            return []
+        except NotFoundError:
+            return []  # nothing indexed yet
+        except ApiError as e:
+            raise SearchFailedError(f"The search index returned an error ({e.meta.status})") from e
         return self._hits(response)
 
+    def dimensions(self) -> int | None:
+        indices = self._indices()
+        if not indices:
+            return None
+        mapping = self._call(self.es.indices.get_mapping, index=indices[0])
+        return int(mapping[indices[0]]["mappings"]["properties"]["vector"]["dims"])
+
     def knn(self, vector: list[float], k: int) -> list[tuple[Passage, float]]:
+        dims = self.dimensions()
+        if dims is not None and dims != len(vector):
+            raise SearchFailedError(EMBEDDING_CHANGED)
         try:
             response = self._call(
                 self.es.search,
@@ -168,6 +190,8 @@ class ElasticIndex:
                 size=k,
                 source_excludes=["vector"],
             )
-        except (NotFoundError, ApiError):
+        except NotFoundError:
             return []
+        except ApiError as e:
+            raise SearchFailedError(f"The search index returned an error ({e.meta.status})") from e
         return self._hits(response)

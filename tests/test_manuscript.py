@@ -86,3 +86,19 @@ def test_reading_never_writes_to_the_source(tmp_path: Path) -> None:
     ms.load(tmp_path)
     assert _fingerprint(tmp_path) == before
     assert sorted(p.name for p in tmp_path.iterdir()) == ["00.md", "01.md", "02.md"]
+
+
+def test_one_paragraph_per_line_without_blank_lines(tmp_path: Path) -> None:
+    f = tmp_path / "book.txt"
+    f.write_text("Chapter 1\nFirst paragraph.\nSecond paragraph.\nThird paragraph.\n")
+    assert ms.load(f).chapters[0].paragraphs == [
+        "First paragraph.",
+        "Second paragraph.",
+        "Third paragraph.",
+    ]
+
+
+def test_windows_1252_text_is_read(tmp_path: Path) -> None:
+    f = tmp_path / "book.txt"
+    f.write_bytes("# One\n\nShe said “hello”.\n".encode("cp1252"))
+    assert ms.load(f).chapters[0].paragraphs == ["She said “hello”."]

@@ -64,7 +64,12 @@ def load(path: Path) -> Manuscript:
 
 
 def _text_lines(path: Path) -> list[str]:
-    return path.read_text(encoding="utf-8-sig").replace("\r\n", "\n").split("\n")
+    raw = path.read_bytes()
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        text = raw.decode("cp1252", errors="replace")  # older Windows exports
+    return text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
 
 
 def _docx_lines(path: Path) -> list[str]:
@@ -83,7 +88,16 @@ def _docx_lines(path: Path) -> list[str]:
 
 
 def _paragraphs(lines: list[str]) -> list[str]:
-    """Blank-line separated paragraphs, with hard-wrapped lines joined. Scene breaks are skipped."""
+    """Blank-line separated paragraphs, with hard-wrapped lines joined. Scene breaks are skipped.
+
+    Text with no blank lines between its lines (one paragraph per line, a common export)
+    is read as one paragraph per line.
+    """
+    text_lines = [line for line in lines if line.strip()]
+    first = next((i for i, line in enumerate(lines) if line.strip()), 0)
+    last = max((i for i, line in enumerate(lines) if line.strip()), default=0)
+    if len(text_lines) > 1 and all(line.strip() for line in lines[first : last + 1]):
+        return [t.strip() for t in text_lines if not SCENE_BREAK.match(t)]
     paragraphs: list[str] = []
     current: list[str] = []
     for line in [*lines, ""]:

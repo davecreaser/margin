@@ -21,3 +21,10 @@ def test_150k_word_manuscript_splits_fast_and_prompts_stay_bounded(tmp_path: Pat
     # Prompt size depends on the passage count, not on the manuscript's length.
     longest = sorted(passages, key=lambda p: -len(p.text))[:8]
     assert len(build_prompt("A question?", longest).split()) < 8 * 600
+
+
+def test_a_huge_paragraph_is_capped_in_the_prompt() -> None:
+    from margin.passages import Passage
+
+    huge = Passage(1, "One", 1, 1, " ".join(["word"] * 18_000))
+    assert len(build_prompt("Q?", [huge] * 8).split()) < 8 * 900

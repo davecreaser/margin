@@ -95,8 +95,8 @@ def run(
         )
         result.input_tokens += reply.input_tokens
         result.output_tokens += reply.output_tokens
-        if reply.output is not None or reply.stop_reason == "refusal":
-            break
+        if reply.output is not None or reply.stop_reason in ("refusal", "max_tokens"):
+            break  # only output that fails the schema is retried
     result.model_ms = int((time.perf_counter() - started) * 1000)
     assert reply is not None
     if reply.output is None:

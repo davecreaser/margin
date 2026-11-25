@@ -49,3 +49,31 @@ def test_openapi_docs_are_served(client: TestClient) -> None:
     assert client.get("/docs").status_code == 200
     paths = client.get("/openapi.json").json()["paths"]
     assert {"/status", "/ingest", "/ask"} <= set(paths)
+
+
+def test_ask_when_search_is_down(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-not-real")
+
+    class DownRetriever:
+        def retrieve(self, *a: object, **k: object) -> None:
+            raise SearchUnavailableError()
+
+    monkeypatch.setattr(api, "retriever", lambda: DownRetriever())
+    r = client.post("/ask", json={"question": "Who?"})
+    assert r.status_code == 503
+    assert r.json()["error"] == "Search index isn't running: start it with docker compose up -d"
+
+
+def test_ask_when_the_provider_is_busy(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    from margin.llm import ModelBusyError
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-not-real")
+
+    def busy(*a: object, **k: object) -> None:
+        raise ModelBusyError()
+
+    monkeypatch.setattr(api.ask_mod, "run", busy)
+    monkeypatch.setattr(api, "retriever", lambda: None)
+    r = client.post("/ask", json={"question": "Who?"})
+    assert r.status_code == 503
+    assert r.json()["error"] == "The model provider is busy; try again in a minute"

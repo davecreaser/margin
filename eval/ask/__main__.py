@@ -19,6 +19,7 @@ from dotenv import load_dotenv
 from eval.ask import corpus
 from eval.ask.graders import Case, answer_correct, evidence_hit, retrieval_hit, score
 from margin.config import PRICES, Settings, estimate_cost
+from margin.steps.answer import PASSAGE_WORD_CAP
 from margin.verify import quote_in_passage
 
 HERE = Path(__file__).parent
@@ -44,10 +45,11 @@ def load_cases(only: list[str] | None) -> list[Case]:
 
 
 def worst_case_cost(settings: Settings, model: str, calls: int) -> float:
-    input_tokens = settings.top_k * settings.max_passage_words * TOKENS_PER_WORD
+    """Every call at max_tokens, every passage at the prompt cap, every case retried once."""
+    input_tokens = settings.top_k * PASSAGE_WORD_CAP * TOKENS_PER_WORD
     input_tokens += PROMPT_OVERHEAD_TOKENS
     per_call = estimate_cost(model, int(input_tokens), settings.answer_max_tokens) or 0.0
-    return per_call * calls
+    return per_call * calls * 2
 
 
 def ingest_eval_copy(settings: Settings) -> Any:
@@ -194,7 +196,7 @@ def main() -> None:
             f"Model: {model} (${price[0]}/${price[1]} per M tokens)" if price else f"Model: {model}"
         )
         print(f"{calls} model calls; worst-case cost ${worst:.2f} "
-              f"(every call at max_tokens={settings.answer_max_tokens}); budget ${args.budget:.2f}")  # fmt: skip
+              f"(each call at max_tokens={settings.answer_max_tokens}, retried once); budget ${args.budget:.2f}")  # fmt: skip
         return
 
     index, retriever = ingest_eval_copy(settings)

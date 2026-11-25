@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from margin import ask as ask_mod
 from margin.config import DEMO_DIR, DEMO_TITLE, Settings
 from margin.embedding import FastEmbedder
-from margin.index import ElasticIndex, SearchUnavailableError
+from margin.index import ElasticIndex, SearchFailedError, SearchUnavailableError
 from margin.ingest import ingest
 from margin.llm import AnthropicClient, ModelBusyError, NoApiKeyError, api_key_present
 from margin.manuscript import NoChaptersError
@@ -54,6 +54,11 @@ def _error(status: int, message: str) -> JSONResponse:
 
 @app.exception_handler(SearchUnavailableError)
 def _search_down(_request: Any, e: SearchUnavailableError) -> JSONResponse:
+    return _error(503, str(e))
+
+
+@app.exception_handler(SearchFailedError)
+def _search_failed(_request: Any, e: SearchFailedError) -> JSONResponse:
     return _error(503, str(e))
 
 

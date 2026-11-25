@@ -50,11 +50,21 @@ class AnswerOutput(BaseModel):
     statements: list[Statement]
 
 
+PASSAGE_WORD_CAP = 800  # bounds the prompt even if one paragraph is very long
+
+
+def _capped(text: str) -> str:
+    words = text.split(" ")
+    if len(words) <= PASSAGE_WORD_CAP:
+        return text
+    return " ".join(words[:PASSAGE_WORD_CAP]) + " …"
+
+
 def build_prompt(question: str, passages: list[Passage]) -> str:
     """Passages and the question as tagged, escaped data (ADR 0005)."""
     blocks = [
         f'<passage id={quoteattr(p.id)} chapter="{p.chapter}" '
-        f"chapter_title={quoteattr(p.chapter_title)}>\n{escape(p.text)}\n</passage>"
+        f"chapter_title={quoteattr(p.chapter_title)}>\n{escape(_capped(p.text))}\n</passage>"
         for p in passages
     ]
     return (

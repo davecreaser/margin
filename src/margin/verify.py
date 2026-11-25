@@ -1,8 +1,9 @@
 """Quote verification (ADR 0001): every quote is checked against its passage's stored text.
 
 Matching ignores whitespace, curly versus straight quotes, dashes, emphasis marks and letter
-case, but never the words themselves. A quote may skip text with an ellipsis; each part must
-then appear in the passage, in order.
+case, but never the words themselves: matches start and end on word boundaries, so "he" never
+matches inside "she". A quote may skip text with an ellipsis; each part must then appear in
+the passage, in order, and be at least MIN_QUOTE_WORDS words long on its own.
 """
 
 import html
@@ -38,13 +39,13 @@ def _parts(quote: str) -> list[str]:
 def quote_in_passage(quote: str, passage_text: str) -> bool:
     """True if the quote's words appear in the passage, in order, as written."""
     parts = _parts(quote)
-    if sum(len(p.split()) for p in parts) < MIN_QUOTE_WORDS:
+    if not parts or any(len(p.split()) < MIN_QUOTE_WORDS for p in parts):
         return False
     haystack = normalise(passage_text)
     position = 0
     for part in parts:
-        found = haystack.find(part, position)
-        if found < 0:
+        found = re.compile(r"(?<!\w)" + re.escape(part) + r"(?!\w)").search(haystack, position)
+        if found is None:
             return False
-        position = found + len(part)
+        position = found.end()
     return True
