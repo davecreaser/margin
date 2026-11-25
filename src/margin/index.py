@@ -168,6 +168,20 @@ class ElasticIndex:
         except NotFoundError:
             return None
 
+    def all_passages(self) -> list[Passage]:
+        """Every passage in reading order, for rebuilding chapters (the timeline reads them)."""
+        if not self._indices():
+            return []
+        response = self._call(
+            self.es.search,
+            index=self.alias,
+            size=10000,
+            query={"match_all": {}},
+            sort=[{"chapter": "asc"}, {"para_start": "asc"}],
+            source_excludes=["vector"],
+        )
+        return [_passage(h["_source"]) for h in response["hits"]["hits"]]
+
     def _hits(self, response: Any) -> list[tuple[Passage, float]]:
         return [(_passage(h["_source"]), float(h["_score"])) for h in response["hits"]["hits"]]
 

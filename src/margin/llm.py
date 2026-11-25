@@ -5,11 +5,12 @@ Steps depend on the `ModelClient` protocol, so tests use a fake that returns can
 
 import os
 from dataclasses import dataclass
-from typing import Literal, Protocol, cast
+from typing import Any, Literal, Protocol, cast
 
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
 KEY_PLACEHOLDERS = {"", "your-key-here"}
+STREAM_ABOVE = 16000
 
 Effort = Literal["low", "medium", "high", "xhigh", "max"]
 
@@ -77,17 +78,22 @@ class AnthropicClient:
         max_tokens: int,
     ) -> ModelReply[T]:
         a = self._anthropic
+        request: dict[str, Any] = {
+            "model": model,
+            "max_tokens": max_tokens,
+            "system": system,
+            "messages": [{"role": "user", "content": user}],
+            "output_config": {
+                "effort": cast(Effort, effort),
+                "format": {"type": "json_schema", "schema": _schema(schema)},
+            },
+        }
         try:
-            response = self._client.messages.create(
-                model=model,
-                max_tokens=max_tokens,
-                system=system,
-                messages=[{"role": "user", "content": user}],
-                output_config={
-                    "effort": cast(Effort, effort),
-                    "format": {"type": "json_schema", "schema": _schema(schema)},
-                },
-            )
+            if max_tokens > STREAM_ABOVE:  # the SDK requires streaming for long outputs
+                with self._client.messages.stream(**request) as stream:
+                    response = stream.get_final_message()
+            else:
+                response = self._client.messages.create(**request)
         except a.AuthenticationError as e:
             raise NoApiKeyError() from e
         except (a.RateLimitError, a.InternalServerError, a.APIConnectionError) as e:

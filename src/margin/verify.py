@@ -36,10 +36,10 @@ def _parts(quote: str) -> list[str]:
     return [p.strip(" \"'") for p in parts if p.strip(" \"'.,;:!?-")]
 
 
-def quote_in_passage(quote: str, passage_text: str) -> bool:
+def quote_in_passage(quote: str, passage_text: str, min_words: int = MIN_QUOTE_WORDS) -> bool:
     """True if the quote's words appear in the passage, in order, as written."""
     parts = _parts(quote)
-    if not parts or any(len(p.split()) < MIN_QUOTE_WORDS for p in parts):
+    if not parts or any(len(p.split()) < min_words for p in parts):
         return False
     haystack = normalise(passage_text)
     position = 0

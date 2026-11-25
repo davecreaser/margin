@@ -1,6 +1,6 @@
 # 0006: Timeline
 
-Status: approved
+Status: done
 
 ## Problem
 
@@ -135,3 +135,9 @@ Not placed (no time given)
 ## Decisions
 
 - 2026-11-26: Approved. Regenerate only, never on ingest (owner's decision, for cost). The eval is run with Sonnet and Opus for placement, and the model is picked by the numbers. The timeline gets its own view.
+- 2026-11-26 (build): Each chapter is rebuilt from its indexed passages, so the timeline reads exactly what Ask and Check see. Extractions are cached by chapter text plus everything that shapes them (prompt, model, effort, event cap, section size). "Changed since" counts chapters by text, so inserting a chapter counts as one change. Time words must be at least two words long ("in 1867"). The CLI always asks before regenerating unless `--yes` is given.
+- 2026-11-26 (eval scope): The novella is about 2,100 words (9 chapters, 15 labelled events), not 6,000. The demo set has 3 labelled events, because *The Card* dates very few events. Counterfactual and injection are one case each, so they are pass or fail, not rates. Injection is graded as the event of the injected chapter landing in its gold period, with story order on the whole novella. The not-placed rate on the full demo is reported per set: it is what separated the models.
+- 2026-11-26 (eval, prompt): After the first novella run, placed 12/15 with 47% of events not placed, the placement prompt was made explicit that an event without time words of its own takes the period of the dated event beside it in the same scene. The next run placed 14/14 with 6% not placed. One gold phrase ("lit the lamp") was ambiguous with the flashback and was made specific.
+- 2026-11-26 (eval, model): Three runs, with both placement models placing the same extracted events. Both met the bar (event recall 0.98, story order 1.0, placement 1.0, counterfactual and injection pass, 0 failed citations displayed). On the 74,000-word demo, Sonnet left 99% of events unplaced, while Opus left 13%, at $0.22 per placement. **Placement uses Claude Opus 5.5**; extraction stays on Sonnet. A full regenerate of the demo costs about $0.80. Baselines: `eval/timeline/baseline-<model>.json`.
+- 2026-11-26 (QA in a browser, demo novel): Made the demo's timeline from the page: 242 events in 69 periods, 40 not placed, $0.78. Filter, reading order and the passage panel work. Fixed long quotes overflowing their card, the progress bar during a regenerate, and the button staying clickable during a run.
+- Follow-ups: compare the timeline with the author's own notes (flag drift); more labelled events for a long book.

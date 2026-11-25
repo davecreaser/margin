@@ -42,7 +42,7 @@ def sections(paragraphs: list[str], words: int) -> list[list[str]]:
 
 
 def worst_case_cost(chapter_words: int, s: Settings) -> float:
-    n_sections = max(1, math.ceil(chapter_words / s.section_words))
+    n_sections = math.ceil(chapter_words / s.section_words) + 1  # a section can spill over
     extract_in = int(min(chapter_words, s.section_words) * TOKENS_PER_WORD) + 600
     extract = n_sections * (estimate_cost(s.claims_model, extract_in, s.claims_max_tokens) or 0)
     judge_in = int(s.check_top_k * 800 * TOKENS_PER_WORD) + 800  # passages at the prompt cap

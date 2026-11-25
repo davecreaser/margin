@@ -18,6 +18,7 @@ from margin import check as check_mod
 from margin import gdocs
 from margin import ingest as ingest_mod
 from margin import progress as progress_mod
+from margin import timeline as timeline_mod
 from margin.config import DEMO_DIR, DEMO_TITLE, Settings
 from margin.embed_cache import CachedEmbedder
 from margin.embedding import FastEmbedder
@@ -228,6 +229,55 @@ def post_target(request: TargetRequest) -> Any:
         return _error(409, "Nothing is indexed yet: ingest a manuscript first")
     progress_mod.set_target(settings().data_dir, stats.manuscript, request.target)
     return get_progress()
+
+
+def _manuscript() -> tuple[str, list[Chapter], list[Any]]:
+    stats = index().stats()
+    if not stats.manuscript:
+        raise ask_mod.EmptyIndexError()
+    passages = index().all_passages()
+    return stats.manuscript, timeline_mod.chapters_from_passages(passages), passages
+
+
+@app.get("/timeline")
+def get_timeline() -> Any:
+    """The saved timeline (or null), and how many chapters changed since it was made."""
+    manuscript, chapters, _ = _manuscript()
+    saved = timeline_mod.load(settings().data_dir, manuscript)
+    return {
+        "manuscript": manuscript,
+        "timeline": saved,
+        "changed": timeline_mod.changed_since(saved, chapters) if saved else None,
+    }
+
+
+@app.post("/timeline/estimate")
+def timeline_estimate() -> Any:
+    _, chapters, _ = _manuscript()
+    s = settings()
+    return {**timeline_mod.estimate(chapters, s.data_dir, s), "confirm_above": s.confirm_above_usd}
+
+
+@app.post("/timeline/regenerate")
+def timeline_regenerate() -> Any:
+    manuscript, chapters, passages = _manuscript()
+    client = AnthropicClient()  # fails fast when there is no key
+
+    def events() -> Iterator[tuple[str, Any]]:
+        try:
+            yield from timeline_mod.regenerate(
+                manuscript, chapters, passages, client=client, settings=settings()
+            )
+        except (
+            ModelBusyError,
+            SearchUnavailableError,
+            SearchFailedError,
+            NoApiKeyError,
+            timeline_mod.PlacementError,
+        ) as e:
+            yield "error", {"message": str(e)}
+
+    return StreamingResponse(_sse(events()), media_type="text/event-stream")
 
 
 class AskRequest(BaseModel):
