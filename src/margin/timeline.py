@@ -10,9 +10,10 @@ when it rests on verified time words, otherwise the event is shown as not placed
 import hashlib
 import html
 import json
-import math
+import os
 import re
 import threading
+from collections import Counter
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
@@ -45,10 +46,29 @@ def chapter_hash(chapter: Chapter) -> str:
     return hashlib.sha256(text.encode()).hexdigest()
 
 
-def _cache_path(data_dir: Path, chapter: Chapter, model: str) -> Path:
-    return (
-        data_dir / "timeline" / "events" / f"{chapter_hash(chapter)[:40]}-{model}-v{VERSION}.json"
-    )
+def _extraction_key(s: Settings) -> str:
+    """Everything besides the chapter text that shapes an extraction: a change re-reads."""
+    parts = [str(VERSION), events_step.SYSTEM, s.events_model, s.events_effort]
+    parts += [str(s.event_cap), str(s.section_words), str(TIME_MIN_WORDS)]
+    return hashlib.sha256("\0".join(parts).encode()).hexdigest()[:12]
+
+
+def _cache_path(data_dir: Path, chapter: Chapter, s: Settings) -> Path:
+    name = f"{chapter_hash(chapter)[:40]}-{_extraction_key(s)}.json"
+    return data_dir / "timeline" / "events" / name
+
+
+def _write(path: Path, data: Any) -> None:
+    """Write whole or not at all, so a crash or a concurrent read never sees half a file."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(f".{os.getpid()}.{threading.get_ident()}.tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False))
+    os.replace(tmp, path)
+
+
+def place_max_tokens(events: int, s: Settings) -> int:
+    """Output room for placing this many events, up to the configured ceiling."""
+    return min(s.place_max_tokens, events * PLACED_TOKENS * 2 + 2000)
 
 
 def _saved_path(data_dir: Path, manuscript: str) -> Path:
@@ -72,7 +92,7 @@ def chapters_from_passages(passages: list[Passage]) -> list[Chapter]:
 
 
 def _cached(data_dir: Path, chapter: Chapter, s: Settings) -> list[dict[str, Any]] | None:
-    path = _cache_path(data_dir, chapter, s.events_model)
+    path = _cache_path(data_dir, chapter, s)
     if not path.exists():
         return None
     events: list[dict[str, Any]] = json.loads(path.read_text())
@@ -84,14 +104,13 @@ def estimate(chapters: list[Chapter], data_dir: Path, s: Settings) -> dict[str, 
     changed = [c for c in chapters if _cached(data_dir, c, s) is None]
     extract = 0.0
     for c in changed:
-        n = max(1, math.ceil(c.words / s.section_words))
+        n = len(sections(c.paragraphs, s.section_words)) or 1
         tokens_in = int(min(c.words, s.section_words) * TOKENS_PER_WORD) + 900
         extract += n * (estimate_cost(s.events_model, tokens_in, s.events_max_tokens) or 0)
     cached_events = sum(len(_cached(data_dir, c, s) or []) for c in chapters if c not in changed)
     events_max = cached_events + s.event_cap * len(changed)
     place_in = events_max * EVENT_TOKENS + 1200
-    place_out = min(s.place_max_tokens, events_max * PLACED_TOKENS + 500)
-    place = estimate_cost(s.place_model, place_in, place_out) or 0
+    place = estimate_cost(s.place_model, place_in, place_max_tokens(events_max, s)) or 0
     return {
         "chapters": len(chapters),
         "changed": [
@@ -179,7 +198,7 @@ def place(
             ],
             model=s.place_model,
             effort=s.place_effort,
-            max_tokens=s.place_max_tokens,
+            max_tokens=place_max_tokens(len(events), s),
         ),
         s.place_model,
         usage,
@@ -249,9 +268,7 @@ def regenerate(
             for k in failed:
                 failed[k] += f[k]
         if not f["errors"]:  # a chapter with a failed call is read again next time
-            path = _cache_path(data_dir, c, s.events_model)
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(json.dumps(events, ensure_ascii=False))
+            _write(_cache_path(data_dir, c, s), events)
         return c, events, False
 
     with ThreadPoolExecutor(max_workers=s.check_concurrency) as pool:
@@ -298,9 +315,7 @@ def regenerate(
         "output_tokens": usage.output_tokens,
         "cost": round(usage.cost, 4),
     }
-    path = _saved_path(data_dir, manuscript)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(timeline, ensure_ascii=False))
+    _write(_saved_path(data_dir, manuscript), timeline)
     yield "done", timeline
 
 
@@ -314,6 +329,7 @@ def load(data_dir: Path, manuscript: str) -> dict[str, Any] | None:
 
 def changed_since(saved: dict[str, Any], chapters: list[Chapter]) -> int:
     """How many chapters were edited, added or removed since the timeline was made."""
-    now = {str(c.number): chapter_hash(c) for c in chapters}
-    then: dict[str, str] = saved["hashes"]
-    return sum(1 for k in now.keys() | then.keys() if now.get(k) != then.get(k))
+    # By content, so renumbering after an inserted chapter doesn't count as a change.
+    now = Counter(chapter_hash(c) for c in chapters)
+    then = Counter(saved["hashes"].values())
+    return max(sum((now - then).values()), sum((then - now).values()))

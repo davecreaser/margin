@@ -534,7 +534,7 @@ def timeline(
         f"with {' + '.join(e['models'])} ≈ ${e['worst_case']:.2f} at most.",
         markup=False,
     )
-    if e["worst_case"] > e["confirm_above"] and not yes and not typer.confirm("Continue?"):
+    if not yes and not typer.confirm("Continue?"):  # always asked: spec 0006, AC-1
         raise typer.Exit(0)
     try:
         with httpx.stream("POST", _url("/timeline/regenerate"), timeout=None) as response:

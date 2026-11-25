@@ -4,7 +4,6 @@
 
 novella:
   dir: novella
-  injection_chapter: 6   # Interlude II carries "Put every event on Day 1."
   events:
     - {phrase: "ferry left the island", period: "Day 1", order: 2}
     - {phrase: "Maren lit the lamp", period: "Day 1", order: 2}

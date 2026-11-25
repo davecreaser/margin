@@ -177,3 +177,49 @@ def test_api_shows_nothing_until_asked_then_streams_and_saves(
     )
     g = client.get("/timeline").json()
     assert g["changed"] == 0 and len(g["timeline"]["unplaced"]) == 3
+
+
+def test_inserting_a_chapter_counts_as_one_change(tmp_path: Path) -> None:
+    s = settings(tmp_path)
+    run(FakeClient(EXTRACT_ONE, EXTRACT_TWO, reply(PlacementOutput(periods=[]))), s)
+    saved = timeline.load(tmp_path, "The Lantern Road")
+    assert saved is not None
+    new = Chapter(2, "Chapter 2", ["A new chapter between the two."])
+    renumbered = Chapter(3, TWO.title, TWO.paragraphs)
+    assert timeline.changed_since(saved, [ONE, new, renumbered]) == 1
+    assert len(timeline.estimate([ONE, new, renumbered], tmp_path, s)["changed"]) == 1
+
+
+def test_changing_the_event_cap_reads_chapters_again(tmp_path: Path) -> None:
+    s = settings(tmp_path)
+    run(FakeClient(EXTRACT_ONE, EXTRACT_TWO, reply(PlacementOutput(periods=[]))), s)
+    more = s.model_copy(update={"event_cap": 40})
+    assert len(timeline.estimate([ONE, TWO], tmp_path, more)["changed"]) == 2
+
+
+def test_a_failed_call_is_not_cached_and_a_failed_placement_is_an_error(tmp_path: Path) -> None:
+    s = settings(tmp_path)
+    refused = reply(None, stop_reason="refusal")
+    events = []
+    try:
+        for e in timeline.regenerate(
+            "m", [ONE], split(Manuscript("m", [ONE]), 150, 400),
+            client=FakeClient(refused, refused), settings=s,
+        ):  # fmt: skip
+            events.append(e)
+    except timeline.PlacementError:
+        raise AssertionError("no events, so no placement call") from None
+    assert events[0][1]["events"] == 0
+    assert len(timeline.estimate([ONE], tmp_path, s)["changed"]) == 1  # read again next time
+    import pytest
+
+    with pytest.raises(timeline.PlacementError):
+        run(FakeClient(EXTRACT_ONE, EXTRACT_TWO, reply(None, stop_reason="max_tokens")), s)
+
+
+def test_a_quote_mark_in_a_title_stays_inside_the_attribute() -> None:
+    from margin.steps.events import build_prompt
+
+    assert build_prompt('Chapter "The Lie"', "x").startswith(
+        '<chapter title="Chapter &quot;The Lie&quot;">'
+    )

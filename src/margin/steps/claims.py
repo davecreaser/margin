@@ -39,7 +39,7 @@ class ClaimsOutput(BaseModel):
 
 
 def build_prompt(title: str, text: str) -> str:
-    return f'<chapter title="{escape(title)}">\n{escape(text)}\n</chapter>'
+    return f'<chapter title="{escape(title, {'"': "&quot;"})}">\n{escape(text)}\n</chapter>'
 
 
 def extract(

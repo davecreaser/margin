@@ -72,7 +72,7 @@ class Settings(BaseSettings):
     event_cap: int = 25
     place_model: str = "claude-sonnet-5-5"
     place_effort: str = "low"
-    place_max_tokens: int = 24000
+    place_max_tokens: int = 64000  # the ceiling; each call asks for room for its events
 
 
 def estimate_cost(model: str, input_tokens: int, output_tokens: int) -> float | None:

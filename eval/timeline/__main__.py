@@ -148,7 +148,7 @@ def main() -> None:
               f"{len(golds)} gold events")  # fmt: skip
     print(f"Extraction {base.events_model}; placement {', '.join(models)}; {args.runs} run(s)")
     print(f"Worst-case cost ${worst:.2f} (every chapter at the event cap, every call at "
-          f"max_tokens); budget ${args.budget:.2f}")  # fmt: skip
+          f"its max_tokens); budget ${args.budget:.2f}")  # fmt: skip
     if args.dry_run:
         return
     if worst > args.budget and not args.yes:
