@@ -39,11 +39,19 @@ class IndexStats:
 
 
 class PassageStore(Protocol):
-    def bm25(self, question: str, k: int) -> list[tuple[Passage, float]]: ...
+    def bm25(
+        self, question: str, k: int, exclude_chapter: int | None = None
+    ) -> list[tuple[Passage, float]]: ...
 
-    def knn(self, vector: list[float], k: int) -> list[tuple[Passage, float]]: ...
+    def knn(
+        self, vector: list[float], k: int, exclude_chapter: int | None = None
+    ) -> list[tuple[Passage, float]]: ...
 
     def stats(self) -> IndexStats: ...
+
+
+def _not_chapter(chapter: int) -> dict[str, Any]:
+    return {"term": {"chapter": chapter}}
 
 
 def _passage(source: dict[str, Any]) -> Passage:
@@ -156,12 +164,17 @@ class ElasticIndex:
     def _hits(self, response: Any) -> list[tuple[Passage, float]]:
         return [(_passage(h["_source"]), float(h["_score"])) for h in response["hits"]["hits"]]
 
-    def bm25(self, question: str, k: int) -> list[tuple[Passage, float]]:
+    def bm25(
+        self, question: str, k: int, exclude_chapter: int | None = None
+    ) -> list[tuple[Passage, float]]:
+        query: dict[str, Any] = {"match": {"text": question}}
+        if exclude_chapter is not None:
+            query = {"bool": {"must": query, "must_not": _not_chapter(exclude_chapter)}}
         try:
             response = self._call(
                 self.es.search,
                 index=self.alias,
-                query={"match": {"text": question}},
+                query=query,
                 size=k,
                 source_excludes=["vector"],
             )
@@ -178,7 +191,9 @@ class ElasticIndex:
         mapping = self._call(self.es.indices.get_mapping, index=indices[0])
         return int(mapping[indices[0]]["mappings"]["properties"]["vector"]["dims"])
 
-    def knn(self, vector: list[float], k: int) -> list[tuple[Passage, float]]:
+    def knn(
+        self, vector: list[float], k: int, exclude_chapter: int | None = None
+    ) -> list[tuple[Passage, float]]:
         dims = self.dimensions()
         if dims is not None and dims != len(vector):
             raise SearchFailedError(EMBEDDING_CHANGED)
@@ -186,7 +201,17 @@ class ElasticIndex:
             response = self._call(
                 self.es.search,
                 index=self.alias,
-                knn={"field": "vector", "query_vector": vector, "k": k, "num_candidates": k * 10},
+                knn={
+                    "field": "vector",
+                    "query_vector": vector,
+                    "k": k,
+                    "num_candidates": k * 10,
+                    **(
+                        {"filter": {"bool": {"must_not": _not_chapter(exclude_chapter)}}}
+                        if exclude_chapter is not None
+                        else {}
+                    ),
+                },
                 size=k,
                 source_excludes=["vector"],
             )

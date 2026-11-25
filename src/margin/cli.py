@@ -172,3 +172,131 @@ def ask(
                 f"\n[dim]{data['model']} · {data['input_tokens']:,} in / "
                 f"{data['output_tokens']:,} out{cost}[/dim]"
             )
+
+
+def _finding(f: dict[str, Any]) -> None:
+    out.print(f"{f['n']}. {f['explanation'] or f['claim']}", markup=False)
+    out.print(f'   This chapter, ¶ {f["paragraph"]:<6} "{f["quote"]}"', markup=False)
+    for c in f["citations"]:
+        out.print(f'   {c["location"]:<19} "{c["quote"]}"', markup=False)
+
+
+@app.command()
+def check(
+    path: Annotated[Path, typer.Argument(help="One chapter: .md, .txt or .docx")],
+    replaces: Annotated[
+        int | None, typer.Option(help="Leave out this indexed chapter (when revising it)")
+    ] = None,
+    all_: Annotated[
+        bool, typer.Option("--all", help="Also list consistent and new claims")
+    ] = False,
+    yes: Annotated[bool, typer.Option("--yes", help="Don't ask before spending")] = False,
+    debug: Annotated[
+        bool, typer.Option("--debug", help="Show dropped claims and failed quotes")
+    ] = False,
+) -> None:
+    """Check a new or revised chapter against the indexed manuscript. Never rewrites it."""
+    from margin.check import worst_case_cost
+    from margin.manuscript import load_chapter
+
+    if not path.is_file():
+        _fail(f"{path} not found")
+    chapter = load_chapter(path)
+    if not chapter.paragraphs:
+        _fail(f"{path.name} has no text to check")
+    s = _request("GET", "/status")
+    if s["passages"] == 0:
+        _fail("Nothing is indexed yet: run ./margin ingest --demo, or ./margin ingest <path>")
+    out.print(
+        f'Checking "{chapter.title}" ({chapter.words:,} words) against {s["manuscript"]}: '
+        f"{s['chapters']} chapters, {s['passages']} passages.",
+        markup=False,
+    )
+    settings = Settings()
+    worst = worst_case_cost(chapter.words, settings)
+    models = " + ".join(sorted({settings.claims_model, settings.judge_model}))
+    out.print(
+        f"Worst case: claims + up to {settings.claim_cap} judging calls with {models} ≈ ${worst:.2f}.",
+        markup=False,
+    )
+    if worst > settings.confirm_above_usd and not yes and not typer.confirm("Continue?"):
+        raise typer.Exit(0)
+
+    body = {
+        "title": chapter.title,
+        "paragraphs": chapter.paragraphs,
+        "replaces": replaces,
+        "debug": debug,
+    }
+    listed: dict[str, list[dict[str, Any]]] = {"consistent": [], "new": [], "not_checked": []}
+    contradictions = 0
+    try:
+        with httpx.stream("POST", _url("/check"), json=body, timeout=None) as response:
+            if response.status_code >= 400:
+                response.read()
+                _check(response)
+            status = err.status("Finding claims…")
+            status.start()
+            for name, data in _events(response):
+                if name == "claim_count":
+                    status.update(f"Checking {data['claims']} claims…")
+                    note = f" (the cap of {data['cap']})" if data["capped"] else ""
+                    status.stop()
+                    out.print(f"Found {data['claims']} claims{note}.\n")
+                    status.start()
+                elif name == "finding":
+                    if data["verdict"] == "contradicts":
+                        status.stop()
+                        if contradictions == 0:
+                            out.print("[bold red]CONTRADICTS[/bold red]")
+                        contradictions += 1
+                        _finding(data)
+                        out.print()
+                        status.start()
+                    else:
+                        listed[data["verdict"]].append(data)
+                    if debug and data["failed"]:
+                        status.stop()
+                        for f in data["failed"]:
+                            out.print(
+                                f"[yellow]\\[debug] failed quote ({escape(f['passage_id'])}):[/yellow] {escape(f['quote'])}"
+                            )
+                        status.start()
+                elif name == "debug":
+                    status.stop()
+                    out.print(f"[yellow]\\[debug] {escape(str(data))}[/yellow]")
+                    status.start()
+                elif name == "error":
+                    status.stop()
+                    _fail(data["message"])
+                elif name == "done":
+                    status.stop()
+                    _check_summary(data, contradictions, listed, all_)
+    except httpx.ConnectError:
+        _fail(SERVICE_DOWN)
+
+
+def _check_summary(
+    done: dict[str, Any], contradictions: int, listed: dict[str, list[dict[str, Any]]], all_: bool
+) -> None:
+    if contradictions == 0:
+        out.print("No contradictions found.")
+    if all_:
+        for verdict, heading in (("consistent", "CONSISTENT"), ("new", "NEW")):
+            if listed[verdict]:
+                out.print(f"\n[bold]{heading}[/bold]")
+                for f in sorted(listed[verdict], key=lambda f: f["n"]):
+                    _finding(f)
+    c = done["counts"]
+    more = "" if all_ else "  (--all to list them)"
+    out.print(
+        f"\n{c['contradicts']} contradictions · {c['consistent']} consistent · {c['new']} new{more}"
+    )
+    if listed["not_checked"]:
+        out.print("Not checked (the model's reply failed twice):")
+        for f in listed["not_checked"]:
+            out.print(f'  ¶ {f["paragraph"]} "{f["quote"]}"', markup=False)
+    out.print(
+        f"\n[dim]{', '.join(done['models'])} · {done['calls']} calls · {done['input_tokens']:,} in / "
+        f"{done['output_tokens']:,} out · ≈ ${done['cost']:.3f}[/dim]"
+    )

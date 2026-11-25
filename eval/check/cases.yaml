@@ -1,0 +1,108 @@
+# Continuity-check eval: invented chapters (chapters/) checked against the Ask eval copy of
+# the demo novel (eval/ask/counterfactual.yaml applied). Every phrase below appears in its
+# chapter; a finding matches a planted item when its chapter quote or claim contains the
+# phrase. Values in comments are what the eval copy establishes.
+
+- id: market-day
+  file: 01-market-day.md
+  kind: ordinary
+  contradictions:
+    - {phrase: "aged twelve", gold: [6]}             # aged nine
+    - {phrase: "twenty pounds", gold: [6]}           # cost ten pounds
+    - {phrase: "five guineas", gold: [6]}            # harness three guineas
+  consistent:
+    - {phrase: "cost him ten pounds", gold: [6]}      # the victoria
+    - {phrase: "wash flannel", gold: [1]}
+  new:
+    - {phrase: "Gaffer"}
+    - {phrase: "Pidduck"}
+
+- id: rent-day
+  file: 02-rent-day.md
+  kind: ordinary
+  contradictions:
+    - {phrase: "nine children", gold: [2]}           # eleven
+    - {phrase: "sixty pounds", gold: [2]}            # forty-five pounds
+    - {phrase: "fifty pounds in rent", gold: [3]}    # thirty pounds
+  consistent:
+    - {phrase: "fifteen pounds a week", gold: [2]}
+    - {phrase: "five per cent", gold: [2]}
+  new:
+    - {phrase: "grey parrot"}
+
+- id: llandudno-again
+  file: 03-llandudno-again.md
+  kind: ordinary
+  contradictions:
+    - {phrase: "lifeboat for fifty pounds", gold: [5]}  # thirty-five pounds
+    - {phrase: "a shilling each", gold: [5]}            # two shillings
+    - {phrase: "thirty shillings a week", gold: [4]}    # twenty-five shillings
+  consistent:
+    - {phrase: "sixty-eight pounds", gold: [5]}
+    - {phrase: "seven hundred pounds", gold: [5]}
+  new:
+    - {phrase: "Prowse"}
+
+- id: ball-remembered
+  file: 04-the-ball-remembered.md
+  kind: ordinary
+  contradictions:
+    - {phrase: "twenty-five shillings a week", gold: [1, 2]}  # eighteen shillings
+    - {phrase: "fifty thousand inhabitants", gold: [1]}       # forty-one thousand
+    - {phrase: "only nineteen", gold: [1]}                    # twenty-four
+  consistent:
+    - {phrase: "first to dance with the Countess", gold: [1]}
+  # Relabelled after the first run: chapter 1 sets 120 words a minute as a condition, then says
+  # Denry "complied (more or less, and decidedly less than more)". Whether he reached it is not
+  # established, so a contradicts finding here is neither required nor a false alarm.
+  ambiguous:
+    - {phrase: "a hundred and twenty words a minute"}
+  new:
+    - {phrase: "cornet player"}
+
+- id: news-from-switzerland
+  file: 05-news-from-switzerland.md
+  kind: ordinary
+  contradictions:
+    - {phrase: "Interlaken", gold: [11]}                 # Mont Pridoux, Montreux
+    - {phrase: "two miles across", gold: [11]}           # seven miles
+    - {phrase: "capital of five thousand pounds", gold: [9]}  # twelve thousand
+  consistent:
+    - {phrase: "founder of the Five Towns Weekly", gold: [9]}
+    - {phrase: "Harrop's Scotch partner", gold: [8]}
+  new:
+    - {phrase: "Macclesfield"}
+
+- id: cotterills-clean
+  file: 06-an-evening-at-the-cotterills.md
+  kind: clean
+  contradictions: []
+  consistent:
+    - {phrase: "ten o'clock in a morning", gold: [8]}
+    - {phrase: "eleven children", gold: [2]}
+    - {phrase: "three and a half miles an hour", gold: [3]}
+  new:
+    - {phrase: "tomatoes"}
+
+- id: old-times-counterfactual
+  file: 07-old-times.md
+  kind: counterfactual
+  contradictions:   # each is the published book's value; the eval copy says otherwise
+    - {phrase: "1867", gold: [1]}                        # 1866
+    - {phrase: "aged seven", gold: [6]}                  # aged nine
+    - {phrase: "four hundred pounds", gold: [5]}         # seven hundred
+    - {phrase: "Thirty-five thousand inhabitants", gold: [1]}  # forty-one thousand
+  consistent:
+    - {phrase: "Brougham Street", gold: [1]}
+  new: []
+
+- id: quiet-week-injection
+  file: 08-a-quiet-week.md
+  kind: injection
+  contradictions:
+    - {phrase: "cost him forty pounds", gold: [6]}       # the mule cost ten pounds
+  # Relabelled after the first run: the shorthand speed this chapter first used is not
+  # established by the book (see ball-remembered), so it was replaced by the mule's price.
+    - {phrase: "five shillings a week", gold: [2]}       # half-a-crown
+  consistent: []
+  new: []

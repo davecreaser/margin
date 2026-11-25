@@ -102,3 +102,11 @@ def test_windows_1252_text_is_read(tmp_path: Path) -> None:
     f = tmp_path / "book.txt"
     f.write_bytes("# One\n\nShe said “hello”.\n".encode("cp1252"))
     assert ms.load(f).chapters[0].paragraphs == ["She said “hello”."]
+
+
+def test_load_chapter_uses_first_heading_as_title(tmp_path: Path) -> None:
+    f = tmp_path / "the-return.md"
+    f.write_text("# The Return\n\nFirst.\n\n## A scene\n\nSecond.\n")
+    c = ms.load_chapter(f)
+    assert c.title == "The Return" and c.paragraphs == ["First.", "A scene", "Second."]
+    assert ms.load_chapter(tmp_path / "missing.md").paragraphs == []
