@@ -27,7 +27,7 @@ Terms are from `CONTEXT.md`.
   - Each tab with text is one chapter, titled by the tab's name. A tab that itself contains several chapter headings is split by them, with the same rules as a local file.
   - `--exclude "Notes*"` (repeatable, glob on tab names, case-insensitive) leaves tabs out. Empty tabs are skipped.
   - The excluded patterns are remembered for that document, so a re-ingest without `--exclude` uses them again; `--exclude ""` clears them.
-  - `GET /google/tabs?doc=<link>` lists the document's tabs (name, words, whether currently excluded), so a front end can offer them as checkboxes.
+  - `POST /google/tabs` (`{"doc": "<link>"}`) lists the document's tabs (name, words, whether currently excluded), so a front end can offer them as checkboxes.
   - The document is only read, never written.
   - The output is the same as a local ingest, plus how many tabs were read, reused and excluded.
 - **AC-3 Cheap re-ingest.**
@@ -107,3 +107,5 @@ Checking "Chapter 13" (3,912 words) against the rest of my-novel (it replaces ch
 - 2026-11-25: Excluding tabs is a first-class option: remembered per document, and listed by `GET /google/tabs` so the front end (spec 0004) can offer it at ingest.
 - 2026-11-25 (build): Change detection uses the Docs API's `revisionId` (requested with a `fields` mask, so the reply is tiny) instead of Drive's version. Margin then needs only the `documents.readonly` scope, and the Drive API needn't be enabled.
 - 2026-11-25 (build): OAuth is a "Web application" client with the redirect `http://localhost:8000/google/callback` and PKCE, implemented with httpx (no Google client library).
+- 2026-11-25 (review): A tab is split only by "Chapter N" headings, so scene subheadings stay as text and text before the first chapter heading stays with the tab. Ingest records which chapters each tab became, and `check --tab` leaves all of them out of retrieval. The tab endpoints take POST bodies, and the service runs without an access log, so tab names and the sign-in code never reach the logs. `GET /google/tabs` became `POST /google/tabs`.
+- 2026-11-25 (follow-up): Not yet tried against a real Google Doc; the `live` smoke test (`tests/test_gdocs_live.py`) is for the owner's first sign-in.
