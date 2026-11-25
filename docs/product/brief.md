@@ -53,7 +53,7 @@ They also lose track of their own tics: a favourite simile shape or stock gestur
 
 - Writing, rewriting, continuing or summarising prose for the author.
 - A hosted service, accounts, teams or sharing.
-- A full web app. The interface is a CLI and a local HTTP API. A small local UI may come later, if the CLI proves limiting.
+- A full web app. The interface is a CLI, a local HTTP API and a small local web page over that API (spec 0004).
 - Formats beyond plain text, Markdown and .docx (others later, if ever).
 - Fine-tuning. Retrieval, prompting and model selection come first; fine-tuning is considered only if the eval shows a ceiling they can't pass.
 
@@ -61,10 +61,13 @@ They also lose track of their own tics: a favourite simile shape or stock gestur
 
 Each step is a spec in `docs/specs/` and ships with its eval.
 
-1. **Ask** (spec 0001): `docker compose up` brings up Elasticsearch and the service. `margin ingest` indexes a manuscript, either the bundled demo novel or your own. `margin ask "…"` returns an answer with verified citations, or "not in the manuscript". This is the walking skeleton: every layer, thin. Eval: golden questions, abstention cases, counterfactual questions and an injection passage.
-2. **Continuity check** (spec 0002): `margin check chapter.md` extracts the chapter's factual claims, retrieves the passages they touch, and sorts each claim into contradicts, consistent, or new. Eval: chapters with planted contradictions, measuring how many it catches and how many false alarms it raises.
-3. **Habits report** (spec 0003): `margin habits` finds repeated constructions across the manuscript (simile shapes, "as if/as though", stock gestures) with deterministic patterns, groups and counts them by chapter, and shows each instance in context. An LLM is used only to name the groups. Eval: hand-labelled instances, measuring how many it finds and how many are real.
-4. **Living manuscript**: re-ingest only the chapters that changed, so the index keeps up with a book in revision.
+1. **Ask** (spec 0001, done): `docker compose up` brings up Elasticsearch and the service. `margin ingest` indexes a manuscript, either the bundled demo novel or your own. `margin ask "…"` returns an answer with verified citations, or "not in the manuscript". This is the walking skeleton: every layer, thin. Eval: golden questions, abstention cases, counterfactual questions and an injection passage.
+2. **Continuity check** (spec 0002, done): `margin check chapter.md` extracts the chapter's factual claims, retrieves the passages they touch, and sorts each claim into contradicts, consistent, or new. Eval: chapters with planted contradictions, measuring how many it catches and how many false alarms it raises.
+3. **Google Docs and a living manuscript** (spec 0003, done): ingest a Google Doc, one chapter per tab; re-ingesting embeds only what changed.
+4. **Web page** (spec 0004, done): Ask, Check and Manuscript in the browser at `localhost:8000`.
+5. **Progress tracker** (spec 0005): word counts per chapter at every ingest, against the author's target, over time. No model calls.
+6. **Timeline** (spec 0006): the story's events in story order, each with its quote, generated only when the author asks, with the cost shown first.
+7. **Habits report**: `margin habits` finds repeated constructions across the manuscript (simile shapes, "as if/as though", stock gestures) with deterministic patterns, groups and counts them by chapter, and shows each instance in context. An LLM is used only to name the groups. It also checks the author's own house style, with deterministic rules the author sets: spelling variety (British or American), scene-break and heading formats, and similar. Eval: hand-labelled instances, measuring how many it finds and how many are real.
 
 ## How it compares
 
