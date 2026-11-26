@@ -65,14 +65,18 @@ class Settings(BaseSettings):
     # Progress tracker (spec 0005): a chapter under this many words is a stub.
     stub_words: int = 200
 
-    # Timeline (spec 0006): built only on request.
+    # Story notes, the timeline and the bible (specs 0006, 0008): built only on request.
     events_model: str = "claude-sonnet-5-5"
     events_effort: str = "low"
     events_max_tokens: int = 6000
-    event_cap: int = 25
+    event_cap: int = 8  # scenes per chapter, at most
+    scene_words: int = 700  # about one scene per this many words
     place_model: str = "claude-opus-5-5"  # chosen by eval: Sonnet left 99% of a long book unplaced
     place_effort: str = "low"
     place_max_tokens: int = 64000  # the ceiling; each call asks for room for its events
+    bible_model: str = "claude-sonnet-5-5"
+    bible_effort: str = "low"
+    bible_max_tokens: int = 32000
 
 
 def estimate_cost(model: str, input_tokens: int, output_tokens: int) -> float | None:

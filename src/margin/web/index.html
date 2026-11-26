@@ -19,6 +19,7 @@
       <button role="tab" id="tab-ask" aria-controls="view-ask" aria-selected="true">Ask</button>
       <button role="tab" id="tab-check" aria-controls="view-check" aria-selected="false">Check a chapter</button>
       <button role="tab" id="tab-timeline" aria-controls="view-timeline" aria-selected="false">Timeline</button>
+      <button role="tab" id="tab-bible" aria-controls="view-bible" aria-selected="false">Bible</button>
       <button role="tab" id="tab-progress" aria-controls="view-progress" aria-selected="false">Progress</button>
       <button role="tab" id="tab-manuscript" aria-controls="view-manuscript" aria-selected="false">Manuscript</button>
     </nav>
@@ -91,6 +92,30 @@
         <input id="timeline-filter" type="search" placeholder="Filter: a name, a place…" autocomplete="off">
       </div>
       <div id="timeline-body" aria-live="polite"></div>
+    </section>
+
+    <!-- Bible -->
+    <section class="view" id="view-bible" role="tabpanel" aria-labelledby="tab-bible" hidden>
+      <div class="card">
+        <div class="row spread">
+          <div>
+            <div class="panel-kicker" id="bible-name"></div>
+            <p class="hint" id="bible-meta"></p>
+          </div>
+          <button class="secondary" id="bible-regenerate">Regenerate…</button>
+        </div>
+        <p class="stale" id="bible-stale" hidden></p>
+        <div id="bible-plan" class="plan" hidden></div>
+      </div>
+      <div class="row timeline-tools" id="bible-tools" hidden>
+        <div class="segmented" role="radiogroup" aria-label="Kind">
+          <label><input type="radio" name="bible-kind" value="characters" checked> Characters</label>
+          <label><input type="radio" name="bible-kind" value="places"> Places</label>
+        </div>
+        <label for="bible-filter" class="visually-hidden">Filter the bible</label>
+        <input id="bible-filter" type="search" placeholder="Filter: a name, a trade…" autocomplete="off">
+      </div>
+      <div id="bible-body" class="bible" aria-live="polite"></div>
     </section>
 
     <!-- Progress -->

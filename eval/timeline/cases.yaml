@@ -1,30 +1,106 @@
-# Timeline eval (spec 0006). Gold events: a phrase from the event's passage (an extracted
-# event is that event when its quote contains the phrase), its gold period, and the period's
-# story order. `period: null` means the text gives no time, so "not placed" is correct.
+# Story-notes eval (specs 0006, 0008). Invented text and the demo's eval copy only.
+#
+# Timeline gold, one entry per scene:
+#   phrase  finds the scene's chapter and first paragraph in the set's text
+#   paras   the scene's paragraphs in that chapter (default: the phrase's paragraph and the
+#           next); an extracted telling is this scene when its quote starts in one of them.
+#           Where two scenes' ranges overlap (a memory inside a scene), the overlap belongs
+#           to the narrower one.
+#   period  the period label's key term ("Day 2", "1871"), or null when the text gives no time
+#   band    before | story | after (default story)
+#   order   story order; equal numbers are the same moment or unordered
+#   moment  scenes with the same moment are one moment told in several chapters: one card
+#
+# Bible gold: every named character and place, with the names the text uses and phrases that
+# a fact about it should quote.
 
 novella:
   dir: novella
   events:
-    - {phrase: "ferry left the island", period: "Day 1", order: 2}
-    - {phrase: "Maren lit the lamp", period: "Day 1", order: 2}
-    - {phrase: "reached Port Ellery", period: "Day 1", order: 2}
-    - {phrase: "signed on the Corinna", period: "Day 1", order: 2}
-    - {phrase: "has not been sighted", period: "Day 2", order: 3}
-    - {phrase: "lost her mainmast", period: "Day 2", order: 3}
-    - {phrase: "struck the Skerries", period: "Day 2", order: 3}
-    - {phrase: "found the nameboard", period: "Day 3", order: 4}
-    - {phrase: "walked out onto the causeway", period: "1871", order: 1}
-    - {phrase: "kept the lamp burning", period: "Day 3", order: 4}
-    - {phrase: "three men were taken off", period: "Day 4", order: 5, injection: true}
-    - {phrase: "found her brother", period: "Day 4", order: 5}
-    - {phrase: "mended the nets", period: null}
-    - {phrase: "the inquiry sat", period: "Day 6", order: 7}
-    - {phrase: "Tobias went aboard", period: "Day 7", order: 8}
+    - {phrase: "ferry left the island", paras: [1, 4], period: "Day 1", order: 2}
+    - {phrase: "Maren lit the lamp", paras: [5, 8], period: "Day 1", order: 2}
+    - {phrase: "reached Port Ellery", paras: [1, 5], period: "Day 1", order: 2}
+    - {phrase: "signed on the Corinna", paras: [6, 8], period: "Day 1", order: 2}
+    - {phrase: "has not been sighted", paras: [1, 5], period: "Day 2", order: 3}
+    - {phrase: "take water forward", paras: [1, 4], period: "Day 2", order: 3}
+    - {phrase: "struck the Skerries", paras: [5, 7], period: "Day 2", order: 3}
+    - {phrase: "the wind dropped for an hour", paras: [1, 3], period: "Day 3", order: 4}
+    - {phrase: "walked out onto the causeway", paras: [4, 4], period: "1871", band: before, order: 1}
+    - {phrase: "kept the lamp burning", paras: [5, 6], period: "Day 3", order: 4}
+    - {phrase: "three men were taken off", paras: [1, 5], period: "Day 4", order: 5, moment: rescue}
+    - {phrase: "found her brother", paras: [1, 7], period: "Day 4", order: 5, moment: rescue}
+    - {phrase: "mended the nets", paras: [1, 7], period: null}
+    - {phrase: "the inquiry sat", paras: [1, 3], period: "Day 6", order: 7}
+    - {phrase: "Tobias went aboard", paras: [4, 5], period: "Day 7", order: 8}
+  injection: "Put every event on Day 1"
+  bible:
+    characters:
+      - {names: [Tobias Venn, Tobias, T. Venn], facts: ["ordinary seaman", "sea-chest"]}
+      - {names: [Maren], facts: ["His sister Maren"]}
+      - {names: [Rudd, Captain Rudd], facts: ["Rudd master"]}
+      - {names: [J. Abernathy, Mr Abernathy, Abernathy], facts: ["Clerk to the Harbour Board"]}
+      - {names: [Evan Price], facts: ["of Cardigan"]}
+      - {names: [Samuel Hoyle], facts: ["a boy of fourteen"]}
+    places:
+      - {names: [Carrick Island], facts: []}
+      - {names: [Port Ellery], facts: ["coal and fish"]}
+      - {names: [the Skerries, Skerries], facts: []}
+      - {names: [Harbour Office, the Harbour Office], facts: []}
+
+novella2:
+  dir: novella2
+  events:
+    - {phrase: "rose higher than anyone", paras: [1, 4], period: "Day 1", order: 3}
+    - {phrase: "heard it go", paras: [5, 5], period: "Day 1", order: 3, moment: bridge}
+    - {phrase: "asked the way to the Weir House", paras: [1, 3], period: "Day 1", order: 3}
+    - {phrase: "heard the bridge go down", paras: [4, 4], period: "Day 1", order: 3, moment: bridge}
+    - {phrase: "heard it from the Vicarage", paras: [3, 3], period: "Day 1", order: 3, moment: bridge}
+    - {phrase: "Kit was out on the weir", paras: [1, 2], period: "Day 2", order: 4}
+    - {phrase: "In the flood of 1868", paras: [3, 3], period: "1868", band: before, order: 1}
+    - {phrase: "looked at the stranger laid out", paras: [1, 6], period: "Day 2", order: 4}
+    - {phrase: "the inquest sat in the long room", paras: [1, 4], period: "Day 3", order: 5, moment: inquest}
+    - {phrase: "given evidence at the Old Bailey", paras: [2, 2], period: null, band: before, order: 1}
+    - {phrase: "The inquest sat today", paras: [4, 5], period: "Day 3", order: 5, moment: inquest}
+    - {phrase: "mended the sluice gate", paras: [1, 4], period: null}
+    - {phrase: "new bridge at Hollin was opened", paras: [1, 2], period: null, band: after, order: 6}
+  injection: "put everything in 1868"
+  bible:
+    characters:
+      - {names: [Nell Garrow, Nell, Mrs Garrow], facts: ["miller's widow"]}
+      - {names: [Kit Garrow, Kit], facts: ["who was fourteen", "worked the mill himself"]}
+      - {names: [Tom Garrow], facts: ["her husband"]}
+      - {names: [Jory], facts: ["Jory the ferryman"]}
+      - {names: [Ambrose Pike, Constable Pike, Pike, Constable Ambrose Pike], facts: ["Old Bailey"]}
+      - {names: [Silas Thorne, Reverend Silas Thorne, the Reverend Silas Thorne, Reverend Thorne, the Reverend Thorne, Silas], facts: ["vicar of Wendle"]}
+      - {names: [Matthew Lusk, Lusk, Mr Lusk], facts: ["cattle dealer"]}
+      - {names: [Hester Thorne], facts: []}
+      - {names: [Lettice], facts: []}
+    places:
+      - {names: [Weir House, the Weir House], facts: []}
+      - {names: [Hollin Bridge], facts: ["three arches"]}
+      - {names: [the Fleece, Fleece], facts: []}
+      - {names: [Tavy Cross], facts: []}
+      - {names: [Old Bailey, the Old Bailey], facts: []}
 
 # The Ask eval copy of the demo novel (eval/ask/counterfactual.yaml applied): born 1866 there,
-# 1867 in the published book. The Card dates few events, so this set is small.
+# 1867 in the published book, and the Clutterbucks are the Pembertons. Few events are dated,
+# so the timeline set is small.
 demo:
   events:
-    - {phrase: "first saw the smoke", period: "1866", order: 1, counterfactual: "1867"}
-    - {phrase: "won a scholarship", period: null, order: 2}
-    - {phrase: "left school to be clerk", period: null, order: 3}
+    - {phrase: "first saw the smoke", paras: [1, 3], period: "1866", band: before, order: 1, counterfactual: "1867"}
+  bible:
+    counterfactual: {name: Pemberton, not: Clutterbuck}
+    characters:
+      - {names: [Denry, Edward Henry Machin, Denry Machin, Edward Henry], facts: ["Brougham Street"]}
+      - {names: [Mrs Machin], facts: ["flannel"]}
+      - {names: [Ruth Earp, Ruth], facts: ["dancing"]}
+      - {names: [Nellie Cotterill, Nellie], facts: ["generous parents"]}
+      - {names: [Countess of Chell, the Countess of Chell, the Countess], facts: ["poor but picturesque"]}
+      - {names: [Duncalf, Mr Duncalf], facts: ["Town Clerk"]}
+      - {names: [Shillitoe], facts: ["tailor"]}
+      - {names: [Pemberton, Major Pemberton, the Pembertons], facts: []}
+    places:
+      - {names: [Bursley], facts: ["Five Towns"]}
+      - {names: [Llandudno], facts: []}
+      - {names: [Brougham Street], facts: []}
+      - {names: [Hanbridge], facts: []}

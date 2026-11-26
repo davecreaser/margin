@@ -468,50 +468,79 @@ def _day(at: str) -> str:
     return datetime.fromisoformat(at).strftime("%-d %b")
 
 
+BAND_NAMES = {"before": "Before the story", "story": "", "after": "After"}
+
+
 def _print_timeline(t: dict[str, Any]) -> None:
+    cards = [c for p in t["periods"] for c in p["cards"]]
     width = max(
-        [len(e["chapter_label"]) for p in t["periods"] for e in p["events"]]
+        [len(e["chapter_label"]) for c in cards for e in c["tellings"]]
         + [len(e["chapter_label"]) for e in t["unplaced"]]
         + [8]
     )
+    band = None
     for period in t["periods"]:
+        if period["band"] != band and BAND_NAMES[period["band"]]:
+            out.print(f"\n[bold underline]{BAND_NAMES[period['band']]}[/bold underline]")
+        band = period["band"]
         out.print(f"\n[bold]{escape(period['label'])}[/bold]")
-        for e in period["events"]:
-            mark = " [dim](uncertain)[/dim]" if e["uncertain"] else ""
-            out.print(f"  {escape(e['chapter_label']):<{width}}  {escape(e['text'])}{mark}")
-            out.print(f'  {"":<{width}}  [dim]"{escape(e["quote"])}"[/dim]')
+        for card in period["cards"]:
+            first = card["tellings"][0]
+            mark = " [dim](uncertain)[/dim]" if card["uncertain"] else ""
+            out.print(f"  {escape(first['chapter_label']):<{width}}  {escape(first['text'])}{mark}")
+            for e in card["tellings"]:
+                label = "" if e is first else f"also told in {e['chapter_label']}: "
+                out.print(f'  {"":<{width}}  [dim]{escape(label)}"{escape(e["quote"])}"[/dim]')
             basis = " · ".join(
-                f'"{escape(b["time"])}" ({escape(b["chapter_label"])})' for b in e["basis"]
+                f'"{escape(b["time"])}" ({escape(b["chapter_label"])})' for b in card["basis"]
             )
             out.print(f"  {'':<{width}}  [dim]placed by {basis}[/dim]")
     if t["unplaced"]:
         out.print("\n[bold]Not placed[/bold] [dim](the text gives no time)[/dim]")
         for e in t["unplaced"]:
             out.print(f"  {escape(e['chapter_label']):<{width}}  {escape(e['text'])}")
-    placed = sum(len(p["events"]) for p in t["periods"])
     out.print(
-        f"\n[dim]{placed} events placed in {len(t['periods'])} periods · "
+        f"\n[dim]{len(cards)} moments placed in {len(t['periods'])} periods · "
         f"{len(t['unplaced'])} not placed · made {_day(t['made_at'])} · "
         f"{' + '.join(t['models'])} · ≈ ${t['cost']:.2f}[/dim]"
     )
 
 
-@app.command()
-def timeline(
-    regenerate: Annotated[
-        bool, typer.Option("--regenerate", help="Rebuild it (re-reads changed chapters)")
-    ] = False,
-    yes: Annotated[bool, typer.Option("--yes", help="Don't ask before spending")] = False,
-) -> None:
-    """The story's events in story order, each quoted. Built only when you ask."""
+def _print_bible(notes: dict[str, Any]) -> None:
+    b = notes["bible"]
+    if b.get("error"):
+        out.print(
+            "[yellow]Grouping the names failed, so each name is shown on its own. "
+            "./margin bible --regenerate tries again (chapters already read are free).[/yellow]"
+        )
+    for title, entries in (("Characters", b["characters"]), ("Places", b["places"])):
+        out.print(f"\n[bold underline]{title}[/bold underline]")
+        if not entries:
+            out.print("  [dim]None found.[/dim]")
+        for e in entries:
+            others = [n for n in e["names"] if n != e["name"]]
+            also = f" [dim]({escape(', '.join(others))})[/dim]" if others else ""
+            where = ", ".join(c["label"] for c in e["chapters"])
+            out.print(f"\n  [bold]{escape(e['name'])}[/bold]{also}  [dim]{escape(where)}[/dim]")
+            for f in e["facts"]:
+                out.print(f"    {escape(f['text'])}")
+                out.print(f'      [dim]{escape(f["chapter_label"])}  "{escape(f["quote"])}"[/dim]')
+    out.print(
+        f"\n[dim]{len(b['characters'])} characters · {len(b['places'])} places · "
+        f"made {_day(notes['made_at'])} · {' + '.join(notes['models'])} · "
+        f"≈ ${notes['cost']:.2f}[/dim]"
+    )
+
+
+def _story_notes(regenerate: bool, yes: bool, show: Any, what: str) -> None:
     g = _request("GET", "/timeline")
     saved = g["timeline"]
     if not regenerate:
         if saved is None:
             e = _request("POST", "/timeline/estimate")
             out.print(
-                f"No timeline for {g['manuscript']} yet. Make one with "
-                f"./margin timeline --regenerate (≈ ${e['worst_case']:.2f} at most).",
+                f"No {what} for {g['manuscript']} yet. Make the timeline and the bible with "
+                f"./margin {what} --regenerate (≈ ${e['worst_case']:.2f} at most).",
                 markup=False,
             )
             return
@@ -519,19 +548,20 @@ def timeline(
             n = g["changed"]
             out.print(
                 f"[yellow]Made on {_day(saved['made_at'])} · {n} chapter{'s' if n > 1 else ''} "
-                "changed since. ./margin timeline --regenerate updates it.[/yellow]"
+                f"changed since. ./margin {what} --regenerate updates it.[/yellow]"
             )
-        _print_timeline(saved)
+        show(saved)
         return
 
     e = _request("POST", "/timeline/estimate")
     n = len(e["changed"])
-    what = (
+    reading = (
         f"{n} of {e['chapters']} chapters changed" if saved else f"Reading {e['chapters']} chapters"
     )
     out.print(
-        f"Timeline for {g['manuscript']}: {what}, then placing up to {e['events_max']} events "
-        f"with {' + '.join(e['models'])} ≈ ${e['worst_case']:.2f} at most.",
+        f"Timeline and bible for {g['manuscript']}: {reading}, then placing up to "
+        f"{e['events_max']} scenes and grouping names, with {' + '.join(e['models'])} "
+        f"≈ ${e['worst_case']:.2f} at most.",
         markup=False,
     )
     if not yes and not typer.confirm("Continue?"):  # always asked: spec 0006, AC-1
@@ -545,15 +575,38 @@ def timeline(
             status.start()
             for name, data in _events(response):
                 if name == "chapter_done":
-                    how = "unchanged" if data["cached"] else f"{data['events']} events"
+                    how = "unchanged" if data["cached"] else f"{data['events']} scenes"
                     status.update(f"Read {data['title']} ({how})…")
                 elif name == "placing":
-                    status.update(f"Placing {data['events']} events in story order…")
+                    status.update(f"Placing {data['events']} scenes in story order…")
+                elif name == "bible":
+                    status.update(f"Grouping {data['names']} names into the bible…")
                 elif name == "error":
                     status.stop()
                     _fail(data["message"])
                 elif name == "done":
                     status.stop()
-                    _print_timeline(data)
+                    show(data)
     except httpx.ConnectError:
         _fail(SERVICE_DOWN)
+
+
+REGENERATE = "Rebuild the timeline and the bible (re-reads changed chapters)"
+
+
+@app.command()
+def timeline(
+    regenerate: Annotated[bool, typer.Option("--regenerate", help=REGENERATE)] = False,
+    yes: Annotated[bool, typer.Option("--yes", help="Don't ask before spending")] = False,
+) -> None:
+    """The story's scenes in story order, each quoted. Built only when you ask."""
+    _story_notes(regenerate, yes, _print_timeline, "timeline")
+
+
+@app.command()
+def bible(
+    regenerate: Annotated[bool, typer.Option("--regenerate", help=REGENERATE)] = False,
+    yes: Annotated[bool, typer.Option("--yes", help="Don't ask before spending")] = False,
+) -> None:
+    """Characters and places, with facts quoted from the text. Built only when you ask."""
+    _story_notes(regenerate, yes, _print_bible, "bible")

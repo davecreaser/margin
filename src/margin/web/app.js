@@ -97,7 +97,7 @@ function thinking(text) {
 
 // --- Views ---------------------------------------------------------------------------
 
-const VIEWS = ["ask", "check", "timeline", "progress", "manuscript"];
+const VIEWS = ["ask", "check", "timeline", "bible", "progress", "manuscript"];
 
 function setView(name) {
   for (const v of VIEWS) {
@@ -109,6 +109,7 @@ function setView(name) {
   if (name === "manuscript") loadManuscriptView();
   if (name === "progress") loadProgress();
   if (name === "timeline") loadTimeline();
+  if (name === "bible") loadBible();
   if (name === "ask") $("question").focus();
 }
 
@@ -562,71 +563,93 @@ async function runCheck(plan, replaces, button) {
   }
 }
 
-// --- Timeline ------------------------------------------------------------------------
+// --- Story notes: Timeline and Bible --------------------------------------------------
 
-const timelineState = { data: null };
+// Both views show one saved set of story notes, made by one regenerate (spec 0008).
+const notesState = { data: null };
+const BANDS = { before: "Before the story", story: "", after: "After" };
 
-async function loadTimeline() {
+async function loadNotes() {
   try {
-    const g = await api("GET", "/timeline");
-    timelineState.data = g;
-    renderTimelineHead(g);
+    notesState.data = await api("GET", "/timeline");
+    for (const view of ["timeline", "bible"]) renderNotesHead(view);
     renderTimeline();
+    renderBible();
   } catch (error) {
     showError(error);
   }
 }
 
-function renderTimelineHead(g) {
+const loadTimeline = loadNotes;
+const loadBible = loadNotes;
+
+function renderNotesHead(view) {
+  const g = notesState.data;
   const t = g.timeline;
-  $("timeline-name").textContent = g.manuscript;
-  $("timeline-tools").hidden = !t;
-  $("timeline-regenerate").textContent = t ? "Regenerate…" : "Make the timeline…";
+  $(`${view}-name`).textContent = g.manuscript;
+  $(`${view}-tools`).hidden = !t;
+  $(`${view}-regenerate`).textContent = t ? "Regenerate…" : "Make the timeline and bible…";
   if (!t) {
+    $(`${view}-meta`).textContent =
+      "Margin reads every chapter once and makes two things: the story's scenes in story order, and a bible of its characters and places. Everything is quoted from your text. It runs only when you ask, after showing the cost.";
+  } else if (view === "timeline") {
+    const cards = t.periods.reduce((n, p) => n + p.cards.length, 0);
     $("timeline-meta").textContent =
-      "Margin reads every chapter and puts its events in story order, each quoted. It runs only when you ask, after showing the cost.";
+      `${fmt(cards)} moments in ${t.periods.length} periods · ${fmt(t.unplaced.length)} not placed · made ${day(t.made_at)} · ${t.models.join(" + ")} · ${money(t.cost)}`;
   } else {
-    const placed = t.periods.reduce((n, p) => n + p.events.length, 0);
-    $("timeline-meta").textContent =
-      `${fmt(placed)} events in ${t.periods.length} periods · ${fmt(t.unplaced.length)} not placed · made ${day(t.made_at)} · ${t.models.join(" + ")} · ${money(t.cost)}`;
+    $("bible-meta").textContent =
+      `${fmt(t.bible.characters.length)} characters · ${fmt(t.bible.places.length)} places · made ${day(t.made_at)} · ${t.models.join(" + ")} · ${money(t.cost)}`;
   }
-  const stale = $("timeline-stale");
+  const stale = $(`${view}-stale`);
   stale.hidden = !g.changed;
   if (g.changed) {
-    stale.textContent = `${g.changed} chapter${g.changed > 1 ? "s" : ""} changed since this timeline was made. Regenerate re-reads only those.`;
+    stale.textContent = `${g.changed} chapter${g.changed > 1 ? "s" : ""} changed since this was made. Regenerate re-reads only those.`;
   }
 }
 
-function eventMatches(e, q) {
-  return !q || `${e.text} ${e.quote} ${e.chapter_label}`.toLowerCase().includes(q);
+function quoteButton(passageId, quote) {
+  return passageId
+    ? el("button", { class: "tl-quote quote", onclick: (ev) => openPassage(passageId, quote, ev.currentTarget) }, quote)
+    : el("span", { class: "tl-quote quote" }, quote);
 }
 
-function eventCard(e, chip) {
-  const quote = e.passage_id
-    ? el("button", { class: "tl-quote quote", onclick: (ev) => openPassage(e.passage_id, e.quote, ev.currentTarget) }, e.quote)
-    : el("span", { class: "tl-quote quote" }, e.quote);
-  const card = el(
+function cardMatches(card, q) {
+  return !q || card.tellings.some((e) => `${e.text} ${e.quote} ${e.chapter_label}`.toLowerCase().includes(q));
+}
+
+function timelineCard(card, chip) {
+  const [first, ...more] = card.tellings;
+  const node = el(
     "article",
-    { class: `tl-card${e.uncertain ? " uncertain" : ""}` },
-    el("div", { class: "tl-top" }, el("span", { class: "chip" }, chip), e.uncertain ? el("span", { class: "hint" }, "uncertain") : null),
-    el("p", { class: "tl-text" }, e.text),
-    quote,
+    { class: `tl-card${card.uncertain ? " uncertain" : ""}` },
+    el(
+      "div",
+      { class: "tl-top" },
+      el("span", { class: "chip" }, chip),
+      more.length ? el("span", { class: "hint" }, `also told in ${more.map((e) => e.chapter_label).join(", ")}`) : null,
+      card.uncertain ? el("span", { class: "hint" }, "uncertain") : null,
+    ),
+    el("p", { class: "tl-text" }, first.text),
+    quoteButton(first.passage_id, first.quote),
   );
-  if (e.basis && e.basis.length) {
-    card.append(
+  for (const e of more) {
+    node.append(el("p", { class: "tl-telling" }, el("span", { class: "loc" }, e.chapter_label), quoteButton(e.passage_id, e.quote)));
+  }
+  if (card.basis && card.basis.length) {
+    node.append(
       el(
         "p",
         { class: "tl-basis" },
         "placed by ",
-        e.basis.flatMap((b, i) => [i ? " · " : "", el("q", {}, b.time), ` (${b.chapter_label})`]),
+        card.basis.flatMap((b, i) => [i ? " · " : "", el("q", {}, b.time), ` (${b.chapter_label})`]),
       ),
     );
   }
-  return card;
+  return node;
 }
 
 function renderTimeline() {
-  const g = timelineState.data;
+  const g = notesState.data;
   const body = $("timeline-body");
   if (!g || !g.timeline) {
     body.replaceChildren();
@@ -635,69 +658,138 @@ function renderTimeline() {
   const t = g.timeline;
   const q = $("timeline-filter").value.trim().toLowerCase();
   const order = document.querySelector('input[name="timeline-order"]:checked').value;
+  const loose = t.unplaced.map((e) => ({ tellings: [e], basis: [], uncertain: false }));
   const nodes = [];
   if (order === "story") {
+    let band = null;
     for (const period of t.periods) {
-      const cards = period.events.filter((e) => eventMatches(e, q)).map((e) => eventCard(e, e.chapter_label));
-      if (cards.length) nodes.push(el("section", { class: "tl-period" }, el("h3", {}, period.label), cards));
+      const cards = period.cards.filter((c) => cardMatches(c, q)).map((c) => timelineCard(c, c.tellings[0].chapter_label));
+      if (!cards.length) continue;
+      if (period.band !== band && BANDS[period.band]) nodes.push(el("h2", { class: "tl-band" }, BANDS[period.band]));
+      band = period.band;
+      nodes.push(el("section", { class: `tl-period ${period.band}` }, el("h3", {}, period.label), cards));
     }
-    const loose = t.unplaced.filter((e) => eventMatches(e, q));
-    if (loose.length) {
+    const shown = loose.filter((c) => cardMatches(c, q));
+    if (shown.length) {
       nodes.push(
         el(
           "section",
           { class: "tl-period unplaced" },
           el("h3", {}, "Not placed"),
           el("p", { class: "hint" }, "The text gives no time for these, so Margin doesn't guess."),
-          loose.map((e) => eventCard(e, e.chapter_label)),
+          shown.map((c) => timelineCard(c, c.tellings[0].chapter_label)),
         ),
       );
     }
   } else {
+    // Reading order: every telling under its own chapter, chipped with its story period.
     const periodOf = new Map();
-    t.periods.forEach((p) => p.events.forEach((e) => periodOf.set(e.id, p.label)));
-    const all = [...t.periods.flatMap((p) => p.events), ...t.unplaced].sort(
-      (a, b) => a.chapter - b.chapter || a.paragraph - b.paragraph,
-    );
+    t.periods.forEach((p) => p.cards.forEach((c) => c.tellings.forEach((e) => periodOf.set(e.id, p.label))));
+    const all = [...t.periods.flatMap((p) => p.cards), ...loose]
+      .flatMap((c) => c.tellings.map((e) => ({ ...c, tellings: [e] })))
+      .sort((a, b) => a.tellings[0].chapter - b.tellings[0].chapter || a.tellings[0].paragraph - b.tellings[0].paragraph);
     const byChapter = new Map();
-    for (const e of all.filter((x) => eventMatches(x, q))) {
-      if (!byChapter.has(e.chapter)) byChapter.set(e.chapter, []);
-      byChapter.get(e.chapter).push(e);
+    for (const c of all.filter((x) => cardMatches(x, q))) {
+      const n = c.tellings[0].chapter;
+      if (!byChapter.has(n)) byChapter.set(n, []);
+      byChapter.get(n).push(c);
     }
-    for (const events of byChapter.values()) {
+    for (const cards of byChapter.values()) {
       nodes.push(
         el(
           "section",
           { class: "tl-period reading" },
-          el("h3", {}, events[0].chapter_label),
-          events.map((e) => eventCard(e, periodOf.get(e.id) || "Not placed")),
+          el("h3", {}, cards[0].tellings[0].chapter_label),
+          cards.map((c) => timelineCard(c, periodOf.get(c.tellings[0].id) || "Not placed")),
         ),
       );
     }
   }
   body.replaceChildren(
-    nodes.length ? el("div", { class: `tl ${order}` }, nodes) : el("p", { class: "hint" }, "No events match the filter."),
+    nodes.length ? el("div", { class: `tl ${order}` }, nodes) : el("p", { class: "hint" }, "No scenes match the filter."),
   );
 }
 
-async function planTimeline() {
+const FACTS_SHOWN = 6;
+
+// "Chapters 1–4, 7" when the chapters are numbered plainly; their own names otherwise.
+function chapterList(chapters) {
+  if (!chapters.length) return "Named in no chapter's text";
+  const nums = chapters.map((c) => /^Chapter (\d+)$/.exec(c.label)?.[1]).map(Number);
+  if (nums.some((n) => !n)) return `In ${chapters.map((c) => c.label).join(", ")}`;
+  const runs = [];
+  for (const n of nums) {
+    const last = runs[runs.length - 1];
+    if (last && n === last[1] + 1) last[1] = n;
+    else runs.push([n, n]);
+  }
+  const text = runs.map(([a, b]) => (a === b ? `${a}` : `${a}–${b}`)).join(", ");
+  return `${nums.length > 1 ? "Chapters" : "Chapter"} ${text}`;
+}
+
+function renderBible() {
+  const g = notesState.data;
+  const body = $("bible-body");
+  if (!g || !g.timeline) {
+    body.replaceChildren();
+    return;
+  }
+  const b = g.timeline.bible;
+  const failed = b.error
+    ? el("p", { class: "stale" }, "Grouping the names failed, so each name is shown on its own. Regenerate tries again; chapters already read cost nothing.")
+    : null;
+  const kind = document.querySelector('input[name="bible-kind"]:checked').value;
+  const q = $("bible-filter").value.trim().toLowerCase();
+  const entries = (kind === "characters" ? b.characters : b.places).filter(
+    (e) => !q || [...e.names, ...e.facts.map((f) => `${f.text} ${f.quote}`)].join(" ").toLowerCase().includes(q),
+  );
+  const cards = entries.map((e) => {
+    const others = e.names.filter((n) => n !== e.name);
+    const list = el("ul", { class: "facts" });
+    const showFacts = (n) =>
+      list.replaceChildren(
+        ...e.facts.slice(0, n).map((f) =>
+          el("li", {}, el("span", { class: "fact" }, f.text), el("span", { class: "chip" }, f.chapter_label), quoteButton(f.passage_id, f.quote)),
+        ),
+      );
+    showFacts(q ? e.facts.length : FACTS_SHOWN);
+    const more =
+      !q && e.facts.length > FACTS_SHOWN
+        ? el("button", { class: "linkish", onclick: (ev) => { showFacts(e.facts.length); ev.currentTarget.remove(); } }, `Show all ${e.facts.length} facts`)
+        : null;
+    return el(
+      "article",
+      { class: "bible-entry" },
+      el("h3", {}, e.name),
+      el("p", { class: "hint" }, [others.length ? `Also ${others.join(", ")} · ` : "", chapterList(e.chapters)].join("")),
+      e.facts.length ? list : el("p", { class: "hint" }, "Named, but the text states no facts about them yet."),
+      more,
+    );
+  });
+  body.replaceChildren(
+    ...(failed ? [failed] : []),
+    ...(cards.length ? cards : [el("p", { class: "hint" }, q ? "Nothing matches the filter." : "None found.")]),
+  );
+}
+
+async function planNotes(view) {
   clearError();
-  const plan = $("timeline-plan");
+  const plan = $(`${view}-plan`);
   try {
     const e = await api("POST", "/timeline/estimate");
+    const made = notesState.data?.timeline;
     const n = e.changed.length;
-    const what = !timelineState.data?.timeline
+    const what = !made
       ? `Reading all ${fmt(e.chapters)} chapters`
       : n
         ? `Re-reading ${n} changed chapter${n > 1 ? "s" : ""} (${e.changed.map((c) => c.title).join(", ")})`
-        : "No chapter changed: only placing again";
-    const verb = timelineState.data?.timeline ? "Regenerate" : "Make the timeline";
-    const run = el("button", { class: "primary" }, `${verb} (${money(e.worst_case)} at most)`);
+        : "No chapter changed: only placing and grouping again";
+    const run = el("button", { class: "primary" }, `${made ? "Regenerate" : "Make them"} (${money(e.worst_case)} at most)`);
     const cancel = el("button", { class: "secondary", onclick: () => (plan.hidden = true) }, "Cancel");
-    run.addEventListener("click", () => regenerateTimeline(run, e.chapters));
+    run.addEventListener("click", () => regenerateNotes(view, run, e.chapters));
     plan.replaceChildren(
-      el("p", {}, `${what}, then placing up to ${fmt(e.events_max)} events in story order.`),
-      el("p", { class: "hint" }, `Worst case ${money(e.worst_case)} with ${e.models.join(" and ")}. Unchanged chapters are never read again.`),
+      el("p", {}, `${what}, then placing up to ${fmt(e.events_max)} scenes in story order and grouping the names into the bible.`),
+      el("p", { class: "hint" }, `Worst case ${money(e.worst_case)} with ${e.models.join(", ")}. Unchanged chapters are never read again.`),
       el("div", { class: "row" }, run, cancel),
     );
     plan.hidden = false;
@@ -707,10 +799,10 @@ async function planTimeline() {
   }
 }
 
-async function regenerateTimeline(button, total) {
+async function regenerateNotes(view, button, total) {
   button.disabled = true;
-  $("timeline-regenerate").disabled = true;
-  const plan = $("timeline-plan");
+  for (const v of ["timeline", "bible"]) $(`${v}-regenerate`).disabled = true;
+  const plan = $(`${view}-plan`);
   const text = el("span", {}, "Reading chapters…");
   const fill = el("span");
   plan.replaceChildren(el("div", { class: "progress" }, text, el("div", { class: "bar" }, fill)));
@@ -719,22 +811,25 @@ async function regenerateTimeline(button, total) {
     await stream("/timeline/regenerate", {}, (name, data) => {
       if (name === "chapter_done") {
         read += 1;
-        text.textContent = `Read ${data.title}${data.cached ? " (unchanged)" : ` · ${data.events} events`}`;
-        if (total) fill.style.width = `${Math.min(95, (100 * read) / total)}%`;
+        text.textContent = `Read ${data.title}${data.cached ? " (unchanged)" : ` · ${data.events} scenes`}`;
+        if (total) fill.style.width = `${Math.min(90, (90 * read) / total)}%`;
       } else if (name === "placing") {
-        text.textContent = `Placing ${fmt(data.events)} events in story order…`;
+        text.textContent = `Placing ${fmt(data.events)} scenes in story order…`;
+        fill.style.width = "93%";
+      } else if (name === "bible") {
+        text.textContent = `Grouping ${fmt(data.names)} names into the bible…`;
         fill.style.width = "97%";
       } else if (name === "error") {
         throw new ApiError(data.message);
       }
     });
     plan.hidden = true;
-    await loadTimeline();
+    await loadNotes();
   } catch (error) {
     plan.hidden = true;
     showError(error);
   } finally {
-    $("timeline-regenerate").disabled = false;
+    for (const v of ["timeline", "bible"]) $(`${v}-regenerate`).disabled = false;
   }
 }
 
@@ -1095,7 +1190,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("demo-ingest").addEventListener("click", (e) => ingest({ demo: true }, e.currentTarget));
   $("panel-close").addEventListener("click", closePanel);
   $("target-form").addEventListener("submit", saveTarget);
-  $("timeline-regenerate").addEventListener("click", planTimeline);
+  $("timeline-regenerate").addEventListener("click", () => planNotes("timeline"));
+  $("bible-regenerate").addEventListener("click", () => planNotes("bible"));
+  $("bible-filter").addEventListener("input", renderBible);
+  for (const r of document.querySelectorAll('input[name="bible-kind"]')) r.addEventListener("change", renderBible);
   $("timeline-filter").addEventListener("input", renderTimeline);
   for (const r of document.querySelectorAll('input[name="timeline-order"]')) r.addEventListener("change", renderTimeline);
   document.addEventListener("keydown", (e) => {

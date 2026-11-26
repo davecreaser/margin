@@ -20,7 +20,7 @@ _Avoid_: chunk (fine in indexing code, never in the UI), document, node
 
 **Notes**:
 The author's own material about the book: character lists, timelines, decisions. Notes can be cited, but they are always labelled as notes, never as the text.
-_Avoid_: story bible (in the UI), wiki
+_Avoid_: wiki; and **bible**, which is what Margin builds from the text
 
 ### Grounding
 
@@ -51,6 +51,30 @@ _Avoid_: fact, assertion
 **Finding**:
 The verdict on one claim, with citations: **contradicts** (the manuscript says otherwise), **consistent** (the manuscript agrees), or **new** (the manuscript doesn't say).
 _Avoid_: error, issue, flag (as a noun)
+
+**Story notes**:
+The timeline and the bible together. One regenerate builds both, only when the author asks, after showing the cost.
+
+**Timeline**:
+The story's scenes in story order, grouped into periods. Reading order is the order the book tells them.
+
+**Scene**:
+One stretch of story in one place and time, as one sentence with a verified quote. A chapter gives a handful.
+_Avoid_: event (in the UI), action, beat
+
+**Card**:
+One moment of the story on the timeline. When several chapters tell the same moment, each is a **telling** on the same card. A card is placed only by verified time words: its own scenes', or a scene's beside them in the same chapter.
+
+**Period**:
+A group of cards that happen together ("Day 2 · the fourth of March", "1871"), in one **band**: **before the story** (backstory), the **story** itself (numbered from Day 1, the start of the main action), or **after**.
+
+**Not placed**:
+A scene the text gives no time for. It is shown apart, never guessed.
+_Avoid_: unknown, undated (in the UI)
+
+**Bible**:
+Margin's index of the book's characters and places, built from the text. Each **entry** has the names the text uses for it, facts each quoted from the text, and the chapters that name it.
+_Avoid_: wiki, cast list (that is the author's notes)
 
 **Habit**:
 A construction the author repeats across the manuscript, such as "with the X of a man who…". Each **instance** is shown in context.

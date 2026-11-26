@@ -28,9 +28,16 @@ Every ingest records each chapter's word count, for free. The Progress view show
 <p align="center"><sub>Screenshots use the bundled public-domain demo novel. The growth chart shows a sample history.</sub></p>
 
 ### 🕰️ See the story in story order
-Novels rarely tell events in the order they happen. Margin reads every chapter and lays out its events on a timeline, grouped into periods ("Age twelve", "Evening of the ball", "Day 3"). Each event is quoted from your text, and each placement shows the time words it rests on. An event the text gives no time for goes under **Not placed** rather than being guessed. Switch to reading order to see how far the telling departs from the story. It runs only when you ask, shows the cost first, and re-reads only the chapters you've changed.
+Novels rarely tell events in the order they happen. Margin reads every chapter and lays out its scenes on a timeline, a handful per chapter, in story order. Day 1 is the start of the main action, with the dates the text gives ("Day 2 · the fourth of March"); backstory sits apart in **Before the story**. When several chapters tell the same moment, such as a scene and a letter about it, they share one card with each telling quoted. Every placement shows the time words it rests on, and a scene the text gives no time for goes under **Not placed** rather than being guessed. Switch to reading order to see how far the telling departs from the story.
 
-<p align="center"><img src="docs/images/timeline.jpg" alt="Timeline of the demo novel: periods in story order, each event quoted, with the time words that place it" width="900"></p>
+<p align="center"><img src="docs/images/timeline.jpg" alt="Timeline of the demo novel: backstory before the story, then Day 1, each scene quoted with the time words that place it" width="900"></p>
+
+### 📇 A bible of who is who
+The same read builds a bible of your characters and places: the names the text uses for each, facts in reading order (age, trade, family, where they live), and the chapters that name them. Every fact is quoted from your text and opens the passage it comes from. Names are merged only when the names themselves agree ("Odo" and "Brother Odo"), never on a guess, so "Mr Venn" and "Mrs Venn" stay two people.
+
+<p align="center"><img src="docs/images/bible.jpg" alt="Bible view of the demo novel: Denry Machin, also Denry, chapters 1 to 12, with quoted facts" width="900"></p>
+
+The timeline and the bible are built together, only when you ask, after showing the cost; a regenerate re-reads only the chapters you've changed.
 
 ### 📄 Works where you write
 Use plain-text or Markdown files, a `.docx`, or a **Google Doc with one tab per chapter**. Leave out your notes and cast-list tabs once and Margin remembers. Re-ingesting re-reads only what changed.
@@ -172,7 +179,8 @@ While the app's publishing status is *Testing*, Google expires the sign-in after
 | `./margin check … --replaces 6` | Check a revised chapter 6 against the rest of the book, not its old version |
 | `./margin check --tab "Chapter 13"` | Check a tab of the ingested Google Doc against the rest of the book |
 | `./margin check … --all` / `--yes` | List consistent and new claims too / don't ask before spending |
-| `./margin timeline` / `--regenerate` | Show the story's events in story order, or rebuild it (re-reads changed chapters; asks before spending) |
+| `./margin timeline` / `--regenerate` | Show the story's scenes in story order, or rebuild the timeline and the bible (re-reads changed chapters; asks before spending) |
+| `./margin bible` / `--regenerate` | Show characters and places with quoted facts and the chapters they appear in, or rebuild both |
 | `./margin progress` / `--target 80000` | Words against your target, drafted and stub chapters, growth since last time (no model calls) |
 
 The same is available over HTTP at `http://localhost:8000` (`GET /status`, `POST /ingest`, `POST /ask` as server-sent events), with OpenAPI docs at `/docs`.
@@ -193,10 +201,11 @@ Every AI feature ships with an eval in `eval/`, run by hand (never in CI) with a
 | Feature | Set | Result |
 |---|---|---|
 | Ask (Claude Opus 5.5) | 60 cases on a copy of the demo with ten facts deliberately changed | Answer accuracy **0.91** · abstention **1.0** · counterfactual **1.0** · injection and prose requests **1.0** · multi-passage **0.7** · failed citations shown: **0** |
-| Timeline (extraction Claude Sonnet 5.5, placement Claude Opus 5.5, 3 runs) | An invented 9-chapter novella told out of order (15 labelled events) and the demo's eval copy (birth year changed) | Event recall **0.98** · story order **1.0** · placement **1.0** · counterfactual and injection: pass · events not placed on the full demo: **13%** · ≈ $0.85 for a 74,000-word book |
+| Timeline (extraction Claude Sonnet 5.5, placement Claude Opus 5.5, 3 runs) | Two invented novellas told out of order (28 labelled scenes: a moment told in three chapters, backstory mid-chapter, a date and a "next morning" that are one day) and the demo's eval copy (birth year changed) | Placement **1.0** · story order **1.0** · one moment on one card **0.93** · backstory apart **1.0** · counterfactual and injection: pass · failed citations shown: **0** · ≈ $0.88 for a 74,000-word book |
+| Bible (Claude Sonnet 5.5, 3 runs) | The same sets: 23 characters, 13 places, with fact phrases; a name changed in the demo copy | Character recall **1.0** · place recall **0.92** · fact recall **0.85** · false merges **0** · counterfactual name: pass · split entries **0.14** (bar 0.10, measured before a fix to how titles are compared) |
 | Continuity check (Claude Sonnet 5.5, 3 runs) | 8 invented chapters, 21 planted contradictions | Recall **0.92** · precision **1.0** · counterfactual **0.92** · false alarms on the clean chapter: **0** · ≈ $0.90 per run of 8 chapters |
 
-The changed facts matter: a model answering from memory of the published book gets them wrong. For the timeline, Claude Sonnet 5.5 placed events as well as Opus on the short novella but gave up on the long book, leaving 99% of its events unplaced, so placement runs on Opus. The check eval was also run with Claude Opus 5.5 as the judge, which scored worse (recall 0.84) at twice the cost, so Sonnet is the default.
+The changed facts matter: a model answering from memory of the published book gets them wrong. For the timeline, Claude Sonnet 5.5 placed events as well as Opus on the short novella but gave up on the long book, leaving 99% of its events unplaced, so placement runs on Opus. For the bible, Opus scored the same as Sonnet and split slightly more, so the bible runs on Sonnet. The check eval was also run with Claude Opus 5.5 as the judge, which scored worse (recall 0.84) at twice the cost, so Sonnet is the default.
 
 ```sh
 uv sync
