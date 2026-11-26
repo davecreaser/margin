@@ -1,0 +1,59 @@
+{
+  "events_model": "claude-sonnet-5-5",
+  "place_model": "claude-opus-5-5",
+  "bible_model": "claude-opus-5-5",
+  "effort": {
+    "events": "low",
+    "place": "low",
+    "bible": "low"
+  },
+  "sets": [
+    "demo",
+    "novella",
+    "novella2"
+  ],
+  "runs": 3,
+  "date": "2026-11-26",
+  "timeline": {
+    "event_recall": 0.966,
+    "pairwise_order": 1.0,
+    "placement_accuracy": 1.0,
+    "merge": 0.933,
+    "backstory": 1.0,
+    "granularity": 1.0,
+    "counterfactual": 1.0,
+    "injection": 1.0,
+    "not_placed_rate": 0.33,
+    "events_per_1000_words": 1.65,
+    "event_quote_failure_rate": 0.008,
+    "time_words_failed": 0,
+    "ungrounded_placements": 0,
+    "displayed_failed_citations": 0,
+    "placement_accuracy_demo": 1.0,
+    "pairwise_order_demo": null,
+    "event_recall_demo": 1.0,
+    "not_placed_rate_demo": 0.396,
+    "placement_accuracy_novella": 1.0,
+    "pairwise_order_novella": 1.0,
+    "event_recall_novella": 0.933,
+    "not_placed_rate_novella": 0.064,
+    "placement_accuracy_novella2": 1.0,
+    "pairwise_order_novella2": 1.0,
+    "event_recall_novella2": 1.0,
+    "not_placed_rate_novella2": 0.158
+  },
+  "bible": {
+    "character_recall": 1.0,
+    "place_recall": 0.923,
+    "false_merges": 0,
+    "split_rate": 0.171,
+    "fact_recall": 0.853,
+    "counterfactual": 1.0,
+    "set_runs_skipped": 0,
+    "split_failed_merges_by_code": 38
+  },
+  "input_tokens": 765548,
+  "output_tokens": 157670,
+  "cost_usd": 3.8314,
+  "note": "Extraction, placement and the first bible model's call are one regenerate; other bible models regroup the same names and add only their bible calls. Timeline scores are the same in every file."
+}
