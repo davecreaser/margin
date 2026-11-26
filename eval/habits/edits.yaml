@@ -1,0 +1,18 @@
+# Planted house-style mismatches in the demo excerpt (demo-excerpt.md, with its labels
+# stripped). The style is set to the demo's own; each edit must be found, and nothing else.
+style:
+  spelling: british
+  quotes: double-straight
+  scene_break: "* * *"
+  dash: double-hyphen
+  ellipsis: three-dots
+  numbers: spell-under-100
+edits:
+  # The excerpt has no "recognised", "..." or "ten yards" (the spec's examples), so the
+  # nearest equivalents in it are used.
+  - {rule: spelling, from: "scrutinised his face", to: "scrutinized his face", mismatch: "scrutinized"}
+  - {rule: dash, from: "found out--the odds", to: "found out—the odds", mismatch: "—"}
+  - {rule: ellipsis, from: "Conservative Club, I suppose?", to: "Conservative Club… I suppose?", mismatch: "…"}
+  - {rule: scene_break, from: "\n* * *\n\nWhen he was sixteen", to: "\n***\n\nWhen he was sixteen", mismatch: "***"}
+  - {rule: quotes, from: "\"Good-morning, madam,\" said Denry.", to: "“Good-morning, madam,” said Denry.", mismatch: "“”"}
+  - {rule: numbers, from: "ten minutes too soon", to: "10 minutes too soon", mismatch: "10"}

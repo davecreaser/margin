@@ -16,8 +16,10 @@ from pydantic import BaseModel
 from margin import ask as ask_mod
 from margin import check as check_mod
 from margin import gdocs
+from margin import habits as habits_mod
 from margin import ingest as ingest_mod
 from margin import progress as progress_mod
+from margin import style as style_mod
 from margin import timeline as timeline_mod
 from margin.config import DEMO_DIR, DEMO_TITLE, Settings
 from margin.embed_cache import CachedEmbedder
@@ -264,6 +266,107 @@ def get_bible() -> Any:
         "cost": saved["cost"] if saved else None,
         "changed": timeline_mod.changed_since(saved, chapters) if saved else None,
     }
+
+
+# --- Habits and house style (spec 0007): deterministic, no model, no key ---------------------
+
+
+def _habits() -> habits_mod.Analysis:
+    manuscript, chapters, passages = _manuscript()
+    return habits_mod.cached(manuscript, chapters, passages, settings())
+
+
+@app.get("/habits")
+def get_habits(narration: bool = False, all: bool = False) -> Any:
+    """Counts only: kinds, habits, totals, rates and per-chapter counts. No instances."""
+    s = settings()
+    return habits_mod.report(
+        _habits(), narration=narration, all_phrases=all, phrase_top=s.phrase_top
+    )
+
+
+@app.get("/habits/instances")
+def get_habit_instances(
+    habit: str,
+    chapter: int | None = None,
+    offset: int = 0,
+    limit: int = 50,
+    narration: bool = False,
+) -> Any:
+    """One habit's instances, a page at a time, each with its sentence and match span."""
+    a = _habits()
+    h = habits_mod.find_habit(a, habit)
+    if h is None:
+        close = habits_mod.closest(a, habit)
+        hint = f": closest are {', '.join(close)}" if close else ""
+        return _error(404, f'No habit "{habit}" in this manuscript{hint}')
+    limit = max(1, min(limit, 500))
+    return habits_mod.instances(
+        a, h.id, chapter=chapter, narration=narration, offset=max(0, offset), limit=limit
+    )
+
+
+def _scene_breaks() -> dict[int, list[dict[str, Any]]] | None:
+    """Scene-break lines recorded at ingest, or None for an index made before they were."""
+    chapters = index().stats().chapters
+    if not chapters or any("scene_breaks" not in c for c in chapters):
+        return None
+    return {int(c["number"]): list(c["scene_breaks"]) for c in chapters}
+
+
+@app.get("/style")
+def get_style() -> Any:
+    """The house style rules that are set, and whether scene breaks can be checked."""
+    manuscript, _, _ = _manuscript()
+    return {
+        "manuscript": manuscript,
+        "rules": style_mod.load(settings().data_dir, manuscript),
+        "breaks_recorded": _scene_breaks() is not None,
+        "choices": style_mod.CHOICES,
+        "default_exempt": style_mod.DEFAULT_EXEMPT,
+    }
+
+
+class StyleRequest(BaseModel):
+    rules: dict[str, Any] | None = None
+    toml: str | None = None
+
+
+@app.put("/style")
+def put_style(request: StyleRequest) -> Any:
+    """Save the rules (all of them, replacing the old set), or 422 with the allowed values."""
+    manuscript, _, _ = _manuscript()
+    try:
+        rules = (
+            style_mod.parse(request.toml)
+            if request.toml is not None
+            else style_mod.validate(request.rules or {})
+        )
+    except style_mod.StyleError as e:
+        return _error(422, str(e))
+    return {
+        "manuscript": manuscript,
+        "rules": style_mod.save(settings().data_dir, manuscript, rules),
+    }
+
+
+@app.get("/style/detect")
+def get_style_detect() -> Any:
+    """For each rule, the form the manuscript mostly uses and its share. Saves nothing."""
+    manuscript, chapters, _ = _manuscript()
+    return {"manuscript": manuscript, "detected": style_mod.detect(chapters, _scene_breaks())}
+
+
+@app.get("/style/mismatches")
+def get_style_mismatches() -> Any:
+    """Mismatches with the saved house style, grouped by rule."""
+    manuscript, chapters, passages = _manuscript()
+    rules = style_mod.load(settings().data_dir, manuscript)
+    out = style_mod.report(style_mod.check(rules, chapters, passages, _scene_breaks()))
+    out["manuscript"] = manuscript
+    out["words"] = sum(c.words for c in chapters)
+    out["chapters"] = len(chapters)
+    return out
 
 
 @app.post("/timeline/estimate")

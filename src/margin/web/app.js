@@ -97,7 +97,7 @@ function thinking(text) {
 
 // --- Views ---------------------------------------------------------------------------
 
-const VIEWS = ["ask", "check", "timeline", "bible", "progress", "manuscript"];
+const VIEWS = ["ask", "check", "timeline", "bible", "habits", "progress", "manuscript"];
 
 function setView(name) {
   for (const v of VIEWS) {
@@ -110,6 +110,7 @@ function setView(name) {
   if (name === "progress") loadProgress();
   if (name === "timeline") loadTimeline();
   if (name === "bible") loadBible();
+  if (name === "habits") loadHabits();
   if (name === "ask") $("question").focus();
 }
 
@@ -181,8 +182,8 @@ function highlightRanges(text, quote) {
   return ranges.sort((a, b) => a[0] - b[0]);
 }
 
-function renderPassage(text, quote) {
-  const ranges = quote ? highlightRanges(text, quote) : [];
+function renderPassage(text, quote, exact) {
+  const ranges = exact || (quote ? highlightRanges(text, quote) : []);
   const nodes = [];
   const paragraph = /[^\n]+(?:\n(?!\s*\n)[^\n]*)*/g; // runs of lines between blank lines
   let match;
@@ -1170,6 +1171,314 @@ async function loadFiles() {
   }
 }
 
+// --- Habits and house style (spec 0007): free, no model calls ------------------------
+
+const habitsState = { report: null, open: null, chapter: null, style: null };
+const PAGE = 50;
+
+// The range of `match` (offsets in `sentence`) inside the passage text, found by locating the
+// sentence there first, so the highlight is the exact span the server verified.
+function exactRange(text, sentence, match) {
+  let s = sentence;
+  let [a, b] = match;
+  if (s.startsWith("… ")) {
+    s = s.slice(2);
+    a -= 2;
+    b -= 2;
+  }
+  if (s.endsWith(" …")) s = s.slice(0, -2);
+  const hay = normalise(text);
+  const pieces = [[0, s.length]];
+  for (const [from, to] of pieces) {
+    const ctx = normalise(s.slice(from, to));
+    const at = hay.text.indexOf(ctx.text.trimEnd());
+    if (at < 0) continue;
+    const k1 = ctx.map.findIndex((i) => i + from >= a);
+    let k2 = -1;
+    ctx.map.forEach((i, k) => { if (i + from < b) k2 = k; });
+    if (k1 < 0 || k2 < k1) continue;
+    return [[hay.map[at + k1], hay.map[at + k2] + 1]];
+  }
+  return [];
+}
+
+async function openExact(passageId, sentence, match, opener) {
+  panelOpener = opener || document.activeElement;
+  const panel = $("panel");
+  $("panel-kicker").textContent = "Passage";
+  $("panel-title").textContent = "Loading…";
+  $("panel-body").replaceChildren();
+  panel.hidden = false;
+  $("panel-close").focus();
+  try {
+    const p = await api("POST", "/passage", { id: passageId });
+    $("panel-kicker").textContent = p.chapter_title;
+    $("panel-title").textContent = p.location;
+    const { nodes, first } = renderPassage(p.text, null, exactRange(p.text, sentence, match));
+    $("panel-body").replaceChildren(...nodes);
+    if (first) first.scrollIntoView({ block: "center" });
+  } catch (error) {
+    $("panel-title").textContent = "Couldn't load the passage";
+    $("panel-body").replaceChildren(el("p", {}, error.message));
+  }
+}
+
+function marked(sentence, match) {
+  const [a, b] = match;
+  return [sentence.slice(0, a), el("mark", {}, sentence.slice(a, b)), sentence.slice(b)];
+}
+
+function instanceButton(i, where) {
+  return el(
+    "button",
+    {
+      class: "instance",
+      type: "button",
+      onclick: (ev) => i.passage_id && openExact(i.passage_id, i.sentence, i.match, ev.currentTarget),
+    },
+    el("span", { class: "where" }, where),
+    el("span", {}, ...marked(i.sentence, i.match)),
+  );
+}
+
+async function loadHabits() {
+  const narration = $("habits-narration").checked;
+  try {
+    habitsState.report = await api("GET", `/habits?narration=${narration}&all=true`);
+    renderHabits();
+    loadStyle();
+  } catch (error) {
+    showError(error);
+  }
+}
+
+function renderHabits() {
+  const r = habitsState.report;
+  $("habits-name").textContent = r.manuscript;
+  $("habits-meta").textContent = `${fmt(r.words)} words · ${r.chapters.length} chapters · Free: no model calls`;
+  const body = $("habits-body");
+  if (!r.found) {
+    body.replaceChildren(
+      el("p", { class: "hint" }, `No repeated constructions found in ${r.chapters.length} chapters (${fmt(r.words)} words).`),
+    );
+    return;
+  }
+  const max = Math.max(
+    ...r.kinds.flatMap((k) => k.habits.flatMap((h) => r.chapters.map((c) => (c.words ? (h.chapters[c.number] || 0) / c.words : 0)))),
+  );
+  body.replaceChildren(
+    ...r.kinds.flatMap((k) => [
+      el("h3", { class: "habit-kind" }, k.label),
+      el(
+        "div",
+        { class: "habit-table" },
+        ...(k.habits.length ? k.habits.map((h) => habitRow(h, k.kind, max)) : [el("div", { class: "habit-none" }, "None found")]),
+      ),
+    ]),
+  );
+}
+
+function habitRow(h, kind, max) {
+  const r = habitsState.report;
+  const label = kind === "phrases" ? `“${h.label}”` : h.label;
+  const strip = el(
+    "div",
+    { class: "strip", role: "group", "aria-label": `${h.label} by chapter` },
+    ...r.chapters.map((c) => {
+      const n = h.chapters[c.number] || 0;
+      const rate = c.words ? (n / c.words) * 1000 : 0;
+      const shade = max ? Math.round(((n / (c.words || 1)) / max) * 85) : 0;
+      const title = `${c.label} · ${n} · ${rate.toFixed(1)} per 1,000 words`;
+      const pressed = habitsState.open === h.id && habitsState.chapter === c.number;
+      return el("button", {
+        type: "button",
+        title,
+        "aria-label": title,
+        "aria-pressed": String(pressed),
+        style: `--shade: ${shade}%`,
+        onclick: () => toggleHabit(h.id, habitsState.open === h.id && habitsState.chapter === c.number ? null : c.number),
+      });
+    }),
+  );
+  const variants = h.variants.length ? ` · also: ${h.variants.slice(0, 3).map((v) => `${v.form} (${v.count})`).join(", ")}` : "";
+  const row = el(
+    "div",
+    { class: "habit-row", id: `habit-${CSS.escape(h.id)}` },
+    el("button", { class: "name", type: "button", "aria-expanded": String(habitsState.open === h.id), onclick: () => toggleHabit(h.id, null, true) }, label),
+    el("span", { class: "num" }, fmt(h.total)),
+    el("span", { class: "sub" }, habitsState.report.narration ? "narration only" : `${fmt(h.narration)} in narration`),
+    el("span", { class: "num sub" }, `${h.rate.toFixed(2)} per 1,000`),
+    strip,
+  );
+  if (kind === "phrases") row.append(el("span", { class: "sub", style: "grid-column: 1 / -1" }, `in ${h.in_chapters} chapters${variants}`));
+  if (habitsState.open === h.id) {
+    const list = el("div", { class: "instances" });
+    row.append(list);
+    showInstances(h, list, 0);
+  }
+  return row;
+}
+
+function toggleHabit(id, chapter, fromName) {
+  if (fromName && habitsState.open === id) {
+    habitsState.open = null;
+    habitsState.chapter = null;
+  } else {
+    habitsState.open = id;
+    habitsState.chapter = chapter;
+  }
+  renderHabits();
+  const row = document.getElementById(`habit-${CSS.escape(id)}`);
+  if (row && habitsState.open) row.scrollIntoView({ block: "nearest" });
+}
+
+async function showInstances(h, list, offset) {
+  const narration = $("habits-narration").checked;
+  const chapter = habitsState.chapter;
+  const q = new URLSearchParams({ habit: h.id, offset, limit: PAGE, narration });
+  if (chapter) q.set("chapter", chapter);
+  try {
+    const page = await api("GET", `/habits/instances?${q}`);
+    if (offset === 0) {
+      const label = chapter ? habitsState.report.chapters.find((c) => c.number === chapter).label : null;
+      list.replaceChildren(
+        el("p", { class: "hint" }, `${fmt(page.total)} ${page.total === 1 ? "instance" : "instances"}${label ? ` in ${label}` : ""}`),
+      );
+    }
+    list.querySelector(".linkish")?.remove();
+    for (const i of page.instances) {
+      list.append(instanceButton(i, `${i.label} ¶ ${i.paragraph}${i.dialogue ? " · dialogue" : ""}`));
+    }
+    const shown = offset + page.instances.length;
+    if (shown < page.total) {
+      list.append(el("button", { class: "linkish", type: "button", onclick: () => showInstances(h, list, shown) }, "Show more"));
+    }
+  } catch (error) {
+    list.replaceChildren(el("p", { class: "hint" }, error.message));
+  }
+}
+
+const STYLE_LABELS = {
+  spelling: "Spelling",
+  quotes: "Quotation marks",
+  numbers: "Numbers",
+  dash: "Dashes",
+  ellipsis: "Ellipsis",
+  scene_break: "Scene break line",
+  chapter_heading: "Chapter heading",
+  heading_exempt: "Headings left out",
+  watch: "Watched words (one per line)",
+};
+
+async function loadStyle() {
+  try {
+    habitsState.style = await api("GET", "/style");
+    renderStyleForm(habitsState.style.rules, null);
+    renderMismatches(await api("GET", "/style/mismatches"));
+  } catch (error) {
+    showError(error);
+  }
+}
+
+function renderStyleForm(rules, detected) {
+  const s = habitsState.style;
+  const found = (k) => (detected && detected[k] ? el("span", { class: "found" }, `Manuscript: ${detected[k].value}, ${detected[k].share}% of ${detected[k].of}`) : null);
+  const fields = [];
+  for (const [k, values] of Object.entries(s.choices)) {
+    fields.push(
+      el(
+        "label",
+        {},
+        STYLE_LABELS[k],
+        el("select", { name: k }, el("option", { value: "" }, "Not set"), ...values.map((v) => el("option", { value: v, ...(rules[k] === v ? { selected: "" } : {}) }, v))),
+        found(k),
+      ),
+    );
+  }
+  fields.push(
+    el("label", {}, STYLE_LABELS.scene_break, el("input", { name: "scene_break", value: rules.scene_break || "", placeholder: "* * *" }), found("scene_break"),
+      s.breaks_recorded ? null : el("span", { class: "found" }, "Re-ingest to check scene breaks.")),
+    el("label", {}, STYLE_LABELS.chapter_heading, el("input", { name: "chapter_heading", value: rules.chapter_heading || "", placeholder: "Chapter {n}: {title}" })),
+    el("label", {}, STYLE_LABELS.heading_exempt, el("input", { name: "heading_exempt", value: (rules.heading_exempt || []).join(", "), placeholder: s.default_exempt.join(", ") })),
+    el("label", { class: "wide" }, STYLE_LABELS.watch, el("textarea", { name: "watch", rows: "3" }, (rules.watch || []).join("\n"))),
+  );
+  $("style-fields").replaceChildren(...fields);
+}
+
+function formRules() {
+  const f = $("style-form");
+  const rules = {};
+  for (const k of Object.keys(habitsState.style.choices)) if (f.elements[k].value) rules[k] = f.elements[k].value;
+  for (const k of ["scene_break", "chapter_heading"]) if (f.elements[k].value.trim()) rules[k] = f.elements[k].value.trim();
+  const exempt = f.elements.heading_exempt.value.split(",").map((x) => x.trim()).filter(Boolean);
+  if (exempt.length) rules.heading_exempt = exempt;
+  const watch = f.elements.watch.value.split("\n").map((x) => x.trim()).filter(Boolean);
+  if (watch.length) rules.watch = watch;
+  return rules;
+}
+
+async function saveStyle(event) {
+  event.preventDefault();
+  $("style-saved").textContent = "";
+  try {
+    const r = await api("PUT", "/style", { rules: formRules() });
+    habitsState.style.rules = r.rules;
+    $("style-saved").textContent = "Saved.";
+    renderMismatches(await api("GET", "/style/mismatches"));
+  } catch (error) {
+    $("style-saved").textContent = error.message;
+  }
+}
+
+async function detectStyle() {
+  try {
+    const d = await api("GET", "/style/detect");
+    const merged = { ...formRules() };
+    for (const [k, v] of Object.entries(d.detected)) merged[k] = v.value;
+    renderStyleForm(merged, d.detected);
+    $("style-saved").textContent = "Filled in from the manuscript. Nothing is saved until you press Save.";
+  } catch (error) {
+    showError(error);
+  }
+}
+
+function renderMismatches(r) {
+  const body = $("style-body");
+  const set = Object.keys(r.rules).filter((k) => k !== "heading_exempt");
+  if (!set.length) {
+    body.replaceChildren(el("p", { class: "hint" }, "No house style set. Start from my manuscript fills the form with what your text mostly uses."));
+    return;
+  }
+  const blocks = [];
+  if (!r.mismatches) blocks.push(el("p", { class: "hint" }, `Matches your house style: ${r.checked} rules checked.`));
+  for (const rule of r.by_rule) {
+    const head = el("h3", {}, `${rule.rule}: ${rule.value}`,
+      el("span", { class: "hint" }, rule.unchecked || (rule.total ? `${fmt(rule.total)} ${rule.total === 1 ? "mismatch" : "mismatches"}` : "matches")));
+    const rows = rule.rows.map((row) => {
+      if (row.after || row.paragraph === 0) {
+        const where = row.after
+          ? `${row.label} ${row.paragraph ? `after ¶ ${row.paragraph}` : "at the start"}`
+          : `${row.label} heading`;
+        return el("div", { class: "instance" }, el("span", { class: "where" }, where), el("span", {}, el("mark", {}, row.text)));
+      }
+      return instanceButton(row, `${row.label} ¶ ${row.paragraph} · ${row.what}`);
+    });
+    const labels = Object.fromEntries(rule.rows.map((row) => [String(row.chapter), row.label]));
+    const per = Object.keys(rule.chapters).length > 1
+      ? el("p", { class: "hint" }, "By chapter: " + Object.entries(rule.chapters).map(([n, k]) => `${labels[n] || n} ${k}`).join(" · "))
+      : null;
+    blocks.push(el("div", { class: "style-rule card" }, head, per, ...rows));
+  }
+  for (const w of r.watch) {
+    const n = Object.keys(w.chapters).length;
+    const head = el("h3", {}, `watch: “${w.word}”`,
+      el("span", { class: "hint" }, w.total ? `${fmt(w.total)} uses in ${n} chapter${n === 1 ? "" : "s"}` : "not in the manuscript"));
+    blocks.push(el("div", { class: "style-rule card" }, head, ...w.rows.slice(0, PAGE).map((row) => instanceButton(row, `${row.label} ¶ ${row.paragraph}`)),
+      w.rows.length > PAGE ? el("p", { class: "hint" }, `+ ${w.rows.length - PAGE} more paragraphs: ./margin style lists them all`) : null));
+  }
+  body.replaceChildren(...blocks);
+}
+
 // --- Wiring --------------------------------------------------------------------------
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -1195,6 +1504,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("bible-filter").addEventListener("input", renderBible);
   for (const r of document.querySelectorAll('input[name="bible-kind"]')) r.addEventListener("change", renderBible);
   $("timeline-filter").addEventListener("input", renderTimeline);
+  $("habits-narration").addEventListener("change", () => {
+    habitsState.open = null;
+    habitsState.chapter = null;
+    loadHabits();
+  });
+  $("style-form").addEventListener("submit", saveStyle);
+  $("style-detect").addEventListener("click", detectStyle);
   for (const r of document.querySelectorAll('input[name="timeline-order"]')) r.addEventListener("change", renderTimeline);
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !$("panel").hidden) closePanel();

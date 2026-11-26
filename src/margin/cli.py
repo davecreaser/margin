@@ -610,3 +610,269 @@ def bible(
 ) -> None:
     """Characters and places, with facts quoted from the text. Built only when you ask."""
     _story_notes(regenerate, yes, _print_bible, "bible")
+
+
+# --- Habits and house style (spec 0007) -------------------------------------------------------
+
+
+def _highlight(sentence: str, match: list[int]) -> str:
+    a, b = match
+    return f"{escape(sentence[:a])}[bold]{escape(sentence[a:b])}[/bold]{escape(sentence[b:])}"
+
+
+def _top_chapters(h: dict[str, Any], chapters: dict[str, dict[str, Any]], n: int = 3) -> str:
+    def rate(item: tuple[str, int]) -> float:
+        words = chapters[item[0]]["words"]
+        return item[1] / words if words else 0.0
+
+    ranked = sorted(h["chapters"].items(), key=lambda kv: (-rate(kv), int(kv[0])))
+    return ", ".join(chapters[k]["label"] for k, _ in ranked[:n])
+
+
+def _habit_row(h: dict[str, Any], kind: str, chapters: dict[str, dict[str, Any]]) -> str:
+    label = f'"{h["label"]}"' if kind == "phrases" else h["label"]
+    if kind == "phrases":
+        where = f"in {h['in_chapters']} chapters"
+        if h["variants"]:
+            also = ", ".join(f"{v['form']} ({v['count']})" for v in h["variants"][:3])
+            where += f" · also: {also}"
+    else:
+        where = _top_chapters(h, chapters)
+    return f"  {label:<32.32} {h['total']:>5} {h['narration']:>10} {h['rate']:>10.2f}  {where}"
+
+
+@app.command()
+def habits(
+    all: Annotated[bool, typer.Option("--all", help="List every habit and phrase")] = False,
+    show: Annotated[
+        str | None,
+        typer.Option("--show", help='One habit\'s chapters and instances: --show "nodded"'),
+    ] = None,
+    narration: Annotated[
+        bool, typer.Option("--narration", help="Count and list narration only, without dialogue")
+    ] = False,
+) -> None:
+    """The constructions you repeat, counted per chapter. Free: no model calls."""
+    flag = "true" if narration else "false"
+    if show is not None:
+        _show_habit(show, flag)
+        return
+    r = _request("GET", f"/habits?narration={flag}&all={'true' if all else 'false'}")
+    chapters = {str(c["number"]): c for c in r["chapters"]}
+    scope = " Narration only." if narration else ""
+    out.print(
+        f"Habits in {r['manuscript']}: {r['words']:,} words, {len(r['chapters'])} chapters. "
+        f"Free: no model calls.{scope}",
+        markup=False,
+    )
+    if not r["found"]:
+        out.print(
+            f"No repeated constructions found in {len(r['chapters'])} chapters "
+            f"({r['words']:,} words)."
+        )
+        return
+    out.print()
+    out.print(f"[dim]{'':<34} {'total':>5} {'narration':>10} {'per 1,000':>10}  highest in[/dim]")
+    for k in r["kinds"]:
+        out.print(f"[bold]{escape(k['label'])}[/bold]")
+        rows = k["habits"]
+        if not rows:
+            out.print("  [dim]None found[/dim]")
+            continue
+        shown = rows if all else rows[:5]
+        for h in shown:
+            out.print(_habit_row(h, k["kind"], chapters), markup=False, soft_wrap=True)
+        more = len(rows) - len(shown) + k["more"]
+        if more:
+            out.print(f"  [dim]+ {more} more: ./margin habits --all[/dim]")
+
+
+def _show_habit(name: str, flag: str) -> None:
+    from urllib.parse import quote
+
+    first = _request("GET", f"/habits/instances?habit={quote(name)}&limit=500&narration={flag}")
+    r = _request("GET", f"/habits?narration={flag}&all=true")
+    chapters = {str(c["number"]): c for c in r["chapters"]}
+    h = next((x for k in r["kinds"] for x in k["habits"] if x["id"] == first["habit"]), None)
+    if h is None:  # found only in dialogue, and Narration only is on
+        out.print(f"{first['label']} · 0 in narration in {r['manuscript']}", markup=False)
+        return
+    out.print(
+        f"{h['label']} · {h['total']} in {r['manuscript']} ({h['rate']:.2f} per 1,000 words), "
+        f"{h['narration']} in narration",
+        markup=False,
+    )
+    cells = []
+    for n, count in h["chapters"].items():
+        c = chapters[n]
+        rate = count / c["words"] * 1000 if c["words"] else 0
+        cells.append(f"{c['label']:<12} {count:>3} · {rate:.1f} per 1,000")
+    for i in range(0, len(cells), 3):
+        out.print("  " + "    ".join(cells[i : i + 3]), markup=False)
+    out.print()
+    items = first["instances"]
+    offset = len(items)
+    while offset < first["total"]:
+        page = _request(
+            "GET",
+            f"/habits/instances?habit={quote(name)}&limit=500&offset={offset}&narration={flag}",
+        )
+        items += page["instances"]
+        offset += len(page["instances"]) or first["total"]
+    for i in items:
+        tag = "dialogue " if i["dialogue"] else "narration"
+        out.print(
+            f"  {escape(i['label']):<12} ¶ {i['paragraph']:<4} [dim]{tag}[/dim]  "
+            + _highlight(i["sentence"], i["match"])
+        )
+
+
+style_app = typer.Typer(
+    invoke_without_command=True,
+    help="Your house style: the rules you keep, and where the text differs. Free: no model calls.",
+)
+app.add_typer(style_app, name="style")
+watch_app = typer.Typer(help="Words and phrases to list every use of.")
+style_app.add_typer(watch_app, name="watch")
+
+
+def _print_mismatches(r: dict[str, Any]) -> None:
+    rules = {k: v for k, v in r["rules"].items() if k != "heading_exempt"}
+    if not rules:
+        out.print("No house style set: see what you mostly use with ./margin style --detect")
+        return
+    out.print(f"House style for {r['manuscript']}: {len(rules)} rules set.", markup=False)
+    for rule in r["by_rule"]:
+        head = f"[bold]{rule['rule']}[/bold]: {escape(str(rule['value']))}"
+        if rule.get("unchecked"):
+            out.print(f"{head} · {rule['unchecked']}")
+            continue
+        if not rule["total"]:
+            out.print(f"{head} · matches")
+            continue
+        unit = "mismatch" if rule["total"] == 1 else "mismatches"
+        out.print(f"{head} · {rule['total']} {unit}")
+        if len(rule["chapters"]) > 1:
+            labels = {str(row["chapter"]): row["label"] for row in rule["rows"]}
+            per = " · ".join(f"{labels.get(n, n)} {k}" for n, k in rule["chapters"].items())
+            out.print(f"  [dim]by chapter: {escape(per)}[/dim]")
+        for row in rule["rows"]:
+            where = (
+                ("at the start" if row["paragraph"] == 0 else f"after ¶ {row['paragraph']}")
+                if row["after"]
+                else ("heading" if row["paragraph"] == 0 else f"¶ {row['paragraph']}")
+            )
+            line = f"  {escape(row['label']):<12} {where:<12} "
+            if row["after"] or row["paragraph"] == 0:
+                out.print(line + escape(row["text"]))
+            else:
+                out.print(
+                    line
+                    + _highlight(row["sentence"], row["match"])
+                    + f"  [dim]{escape(row['what'])}[/dim]"
+                )
+    for w in r["watch"]:
+        if w["total"]:
+            n = len(w["chapters"])
+            out.print(
+                f'[bold]watch[/bold]: "{escape(w["word"])}" · {w["total"]} uses in {n} '
+                f"chapter{'s' if n != 1 else ''}"
+            )
+            for row in w["rows"]:
+                out.print(
+                    f"  {escape(row['label']):<12} ¶ {row['paragraph']:<9} "
+                    + _highlight(row["sentence"], row["match"])
+                )
+        else:
+            out.print(f'[bold]watch[/bold]: "{escape(w["word"])}" · not in the manuscript')
+    if not r["mismatches"]:
+        out.print(f"Matches your house style: {r['checked']} rules checked.")
+
+
+@style_app.callback()
+def style(
+    ctx: typer.Context,
+    from_file: Annotated[
+        Path | None, typer.Option("--from", help="Use the rules in this local TOML file")
+    ] = None,
+    detect: Annotated[
+        bool, typer.Option("--detect", help="Show what the manuscript mostly uses (saves nothing)")
+    ] = False,
+    save: Annotated[
+        bool, typer.Option("--save", help="With --detect: save what was found")
+    ] = False,
+) -> None:
+    """Prints the rules that are set, then every mismatch grouped by rule."""
+    if ctx.invoked_subcommand is not None:
+        return
+    if from_file is not None:
+        try:
+            text = from_file.read_text()
+        except OSError:
+            _fail(f"Can't read {from_file}")
+        r = _request("PUT", "/style", json={"toml": text})
+        out.print(f"Saved {len(r['rules'])} rules from {from_file.name}.", markup=False)
+        return
+    if detect:
+        d = _request("GET", "/style/detect")
+        found = d["detected"]
+        if not found:
+            out.print("Nothing to detect yet in this manuscript.")
+            return
+        if save:
+            current = _request("GET", "/style")["rules"]
+            r = _request(
+                "PUT",
+                "/style",
+                json={"rules": {**current, **{k: v["value"] for k, v in found.items()}}},
+            )
+            out.print(
+                f"Saved: {', '.join(f'{k} = {v}' for k, v in r['rules'].items())}.", markup=False
+            )
+            return
+        out.print(f"What {d['manuscript']} mostly uses (nothing saved):", markup=False)
+        for k, v in found.items():
+            out.print(f"  {k:<12} {v['value']:<16} {v['share']}% of {v['of']}", markup=False)
+        out.print("Use these: ./margin style --detect --save")
+        return
+    _print_mismatches(_request("GET", "/style/mismatches"))
+
+
+@style_app.command("set")
+def style_set(
+    rule: Annotated[str, typer.Argument(help="spelling, quotes, scene_break, chapter_heading, …")],
+    value: Annotated[str, typer.Argument(help='The value, e.g. british or "* * *"; "" clears it')],
+) -> None:
+    """Set one house-style rule."""
+    current = _request("GET", "/style")["rules"]
+    new = dict(current)
+    if value == "":
+        new.pop(rule, None)
+    elif rule in ("watch", "heading_exempt"):
+        new[rule] = [x.strip() for x in value.split(",")]
+    else:
+        new[rule] = value
+    _request("PUT", "/style", json={"rules": new})
+    out.print(f"Saved: {rule} = {value}." if value else f"Cleared: {rule}.", markup=False)
+
+
+@watch_app.command("add")
+def watch_add(phrase: str) -> None:
+    """Watch a word or phrase."""
+    current = _request("GET", "/style")["rules"]
+    words = [*current.get("watch", []), phrase]
+    _request("PUT", "/style", json={"rules": {**current, "watch": words}})
+    out.print(f'Watching "{phrase}".', markup=False)
+
+
+@watch_app.command("remove")
+def watch_remove(phrase: str) -> None:
+    """Stop watching a word or phrase."""
+    current = _request("GET", "/style")["rules"]
+    watched = current.get("watch", [])
+    words = [w for w in watched if w.lower() != phrase.lower()]
+    if len(words) == len(watched):
+        out.print(f'"{phrase}" isn\'t watched.', markup=False)
+        return
+    _request("PUT", "/style", json={"rules": {**current, "watch": words}})
+    out.print(f'Stopped watching "{phrase}".', markup=False)

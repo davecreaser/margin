@@ -71,6 +71,12 @@ class Settings(BaseSettings):
     events_max_tokens: int = 6000
     event_cap: int = 8  # scenes per chapter, at most
     scene_words: int = 700  # about one scene per this many words
+    # Habits report (spec 0007): deterministic, no model.
+    habit_min_count: int = 2  # a habit found fewer times is left out
+    phrase_min_count: int = 3
+    phrase_min_chapters: int = 2
+    phrase_min_ratio: float = 20000.0  # times more often than chance; set from the eval
+    phrase_top: int = 50
     place_model: str = "claude-opus-5-5"  # chosen by eval: Sonnet left 99% of a long book unplaced
     place_effort: str = "low"
     place_max_tokens: int = 64000  # the ceiling; each call asks for room for its events

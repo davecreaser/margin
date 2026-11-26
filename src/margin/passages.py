@@ -138,4 +138,12 @@ def split(manuscript: Manuscript, min_words: int, max_words: int) -> list[Passag
 
 
 def chapter_summary(chapters: Sequence[Chapter]) -> list[dict[str, Any]]:
-    return [{"number": c.number, "title": c.title, "words": c.words} for c in chapters]
+    return [
+        {
+            "number": c.number,
+            "title": c.title,
+            "words": c.words,
+            "scene_breaks": [{"after": after, "text": text} for after, text in c.scene_breaks],
+        }
+        for c in chapters
+    ]

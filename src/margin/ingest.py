@@ -77,7 +77,7 @@ def ingest(path: Path, *, index: Index, embedder: Embedder, settings: Settings) 
 
 # Bump when the way tabs become chapters changes, so the next ingest re-reads the document
 # even if it hasn't changed (unchanged passages still come from the vector cache).
-FORMAT = 3
+FORMAT = 4  # 4: scene-break lines recorded (spec 0007)
 
 
 def _state_dir(data_dir: Path) -> Path:

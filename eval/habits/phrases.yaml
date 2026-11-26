@@ -1,0 +1,41 @@
+# The demo's top repeated phrases (the full novel, The Card, public domain), each labelled by
+# hand: true for a real repeated phrase, false for one that isn't.
+#
+# Guide, written before labelling:
+#   true:  a wording a reader of the book could notice as repeated: a verbal tic ("precisely
+#          the same"), a stock description ("his left eye"), a recurring gesture or motif
+#          ("shook her head", "the supper dance").
+#   false: an ordinary fixed expression, or the plain name of a thing, that any writer would
+#          repeat the same way ("the drawing room", "by no means", "out of the house").
+#
+# If the algorithm changes and a phrase in the top 20 has no label here, the eval fails with
+# "label these".
+labels:
+  "his left eye": true
+  "shook her head": true
+  "danced with the countess": true
+  "equal to the situation": true
+  "his mother's cottage": false
+  "to perform the same act": true
+  "welfare of the five towns": true
+  "of bread and butter": false
+  "effected an entrance": true
+  "with terra cotta": false
+  "she can't eat me": true
+  "imagined himself to be": true
+  "could think of nothing": false
+  "well i'm dashed": true
+  "once or twice": false
+  "on the previous day": false
+  "he could not help": false
+  "as he sat down": false
+  "a financial genius": true
+  "who happened to be": false
+  "the drawing room": false
+  "the dining room": false
+  "the ground floor": false
+  "it's all right": false
+  "by no means": false
+  "did not mind": false
+  "out of the house": false
+  "the supper dance": true

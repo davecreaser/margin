@@ -38,10 +38,14 @@ def _parts(quote: str) -> list[str]:
 
 def quote_in_passage(quote: str, passage_text: str, min_words: int = MIN_QUOTE_WORDS) -> bool:
     """True if the quote's words appear in the passage, in order, as written."""
+    return quote_in_normalised(quote, normalise(passage_text), min_words)
+
+
+def quote_in_normalised(quote: str, haystack: str, min_words: int = MIN_QUOTE_WORDS) -> bool:
+    """quote_in_passage against a passage already normalised, for checking many quotes."""
     parts = _parts(quote)
     if not parts or any(len(p.split()) < min_words for p in parts):
         return False
-    haystack = normalise(passage_text)
     position = 0
     for part in parts:
         found = re.compile(r"(?<!\w)" + re.escape(part) + r"(?!\w)").search(haystack, position)
