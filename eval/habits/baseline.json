@@ -1,0 +1,233 @@
+{
+  "kinds_pooled": {
+    "similes": {
+      "gold": 30,
+      "found": 30,
+      "matched": 30,
+      "recall": 1.0,
+      "precision": 1.0
+    },
+    "as_if": {
+      "gold": 30,
+      "found": 30,
+      "matched": 30,
+      "recall": 1.0,
+      "precision": 1.0
+    },
+    "gestures": {
+      "gold": 39,
+      "found": 39,
+      "matched": 39,
+      "recall": 1.0,
+      "precision": 1.0
+    },
+    "filter": {
+      "gold": 63,
+      "found": 63,
+      "matched": 63,
+      "recall": 1.0,
+      "precision": 1.0
+    },
+    "crutch": {
+      "gold": 39,
+      "found": 39,
+      "matched": 39,
+      "recall": 1.0,
+      "precision": 1.0
+    },
+    "openers": {
+      "gold": 37,
+      "found": 37,
+      "matched": 37,
+      "recall": 1.0,
+      "precision": 1.0
+    }
+  },
+  "kinds_by_set": {
+    "invented": {
+      "similes": {
+        "gold": 30,
+        "found": 30,
+        "matched": 30,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "as_if": {
+        "gold": 30,
+        "found": 30,
+        "matched": 30,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "gestures": {
+        "gold": 36,
+        "found": 36,
+        "matched": 36,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "filter": {
+        "gold": 56,
+        "found": 56,
+        "matched": 56,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "crutch": {
+        "gold": 33,
+        "found": 33,
+        "matched": 33,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "openers": {
+        "gold": 33,
+        "found": 33,
+        "matched": 33,
+        "recall": 1.0,
+        "precision": 1.0
+      }
+    },
+    "demo": {
+      "similes": {
+        "gold": 0,
+        "found": 0,
+        "matched": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "as_if": {
+        "gold": 0,
+        "found": 0,
+        "matched": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "gestures": {
+        "gold": 3,
+        "found": 3,
+        "matched": 3,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "filter": {
+        "gold": 7,
+        "found": 7,
+        "matched": 7,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "crutch": {
+        "gold": 6,
+        "found": 6,
+        "matched": 6,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "openers": {
+        "gold": 4,
+        "found": 4,
+        "matched": 4,
+        "recall": 1.0,
+        "precision": 1.0
+      }
+    },
+    "adversarial": {
+      "similes": {
+        "gold": 1,
+        "found": 1,
+        "matched": 1,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "as_if": {
+        "gold": 0,
+        "found": 0,
+        "matched": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "gestures": {
+        "gold": 2,
+        "found": 2,
+        "matched": 2,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "filter": {
+        "gold": 0,
+        "found": 0,
+        "matched": 0,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "crutch": {
+        "gold": 5,
+        "found": 4,
+        "matched": 4,
+        "recall": 0.8,
+        "precision": 1.0
+      },
+      "openers": {
+        "gold": 1,
+        "found": 1,
+        "matched": 1,
+        "recall": 1.0,
+        "precision": 1.0
+      }
+    }
+  },
+  "dialogue_flag": {
+    "right": 28,
+    "total": 28
+  },
+  "failed_verification": 0,
+  "phrases_planted_found": 6,
+  "phrases_planted": 6,
+  "phrases_must_not_reported": 0,
+  "demo_top20_precision": 0.55,
+  "style_rules": {
+    "dash": {
+      "expected": 1,
+      "found": 1,
+      "matched": 1
+    },
+    "scene_break": {
+      "expected": 1,
+      "found": 1,
+      "matched": 1
+    },
+    "ellipsis": {
+      "expected": 1,
+      "found": 1,
+      "matched": 1
+    },
+    "numbers": {
+      "expected": 1,
+      "found": 1,
+      "matched": 1
+    },
+    "quotes": {
+      "expected": 2,
+      "found": 2,
+      "matched": 2
+    },
+    "spelling": {
+      "expected": 31,
+      "found": 31,
+      "matched": 31
+    }
+  },
+  "style_clean_mismatches": {
+    "excerpt as written": 0,
+    "british copy, british": 0,
+    "american copy, american": 0,
+    "clean-style.md": 0
+  },
+  "clean_habits_found": 0,
+  "seconds": {
+    "demo_74k_words": 0.51,
+    "long_150k_words": 1.05,
+    "paragraph_20k_chars": 0.021
+  }
+}

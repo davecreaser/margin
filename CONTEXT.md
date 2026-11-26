@@ -80,8 +80,20 @@ _Avoid_: wiki, cast list (that is the author's notes)
 A construction the author repeats across the manuscript, such as "with the X of a man who…". Each **instance** is shown in context.
 _Avoid_: tic (in the UI), cliché, mistake
 
+**Kind**:
+A family of habits in the habits report: similes, "as if / as though", stock gestures, filter verbs, crutch words, sentence openers, repeated phrases.
+_Avoid_: category, family (in the UI)
+
 **Habits report**:
-The habits found in the manuscript, grouped and counted by chapter.
+The habits found in the manuscript, grouped by kind and counted by chapter.
+
+**House style**:
+The rules an author keeps for the manuscript, as in a style sheet: spelling variety, quotation marks, scene-break and chapter-heading formats, numbers, dashes, ellipses, and watched words. Margin checks only the rules the author sets.
+_Avoid_: style guide, lint (in the UI)
+
+**Mismatch**:
+A place where the text differs from a house-style rule, with its chapter and paragraph.
+_Avoid_: violation, error, mistake
 
 ### Evaluation
 

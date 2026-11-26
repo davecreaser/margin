@@ -39,6 +39,13 @@ The same read builds a bible of your characters and places: the names the text u
 
 The timeline and the bible are built together, only when you ask, after showing the cost; a regenerate re-reads only the chapters you've changed.
 
+### ✍️ The habits you've stopped noticing
+The habits report counts the constructions you repeat: similes, "as if" and "as though", stock gestures (nodded, shrugged, a jaw that tightens), filter verbs, crutch words, runs of sentences that open the same way, and phrases you repeat across chapters far more often than chance. Each habit has a total, a rate per 1,000 words and a strip of chapters shaded by rate. Click one to see every instance in its sentence, then click an instance to open the passage with the words highlighted. A **Narration only** toggle leaves dialogue out. It reports counts and your own words, never a verdict or a rewrite.
+
+Set your **house style** once (British or American spelling, quotation marks, dashes, ellipses, numbers, scene breaks, chapter headings, and words to watch) and Margin lists every place the text differs from it. **Start from my manuscript** fills the form with what your text mostly uses. Both are plain code: no model, no key, no cost.
+
+<p align="center"><img src="docs/images/habits.jpg" alt="Habits view of the demo novel: similes, as if and as though, stock gestures, each with a total, a rate and a strip of chapters, and the instances of one habit listed with the words highlighted" width="900"></p>
+
 ### 📄 Works where you write
 Use plain-text or Markdown files, a `.docx`, or a **Google Doc with one tab per chapter**. Leave out your notes and cast-list tabs once and Margin remembers. Re-ingesting re-reads only what changed.
 
@@ -48,7 +55,6 @@ Use plain-text or Markdown files, a `.docx`, or a **Google Doc with one tab per 
 - **Private by design.** It runs on your computer. Your manuscript and its index stay local. Only the few passages a question needs go to the model, with your own key.
 - **Honest numbers.** Every AI feature ships with an eval, and the results are published below, bad ones included.
 
-**Coming next:** ✍️ a habits report on the constructions you repeat, including your own house-style rules.
 
 ## 🚀 Quick start
 
@@ -121,6 +127,34 @@ Drafted 12 of 12 chapters · 0 stubs (under 200 words)
 
 Snapshots are taken at each ingest (one point per day) and hold numbers and chapter titles only. No model calls.
 
+### Habits and house style
+
+```
+$ ./margin habits
+Habits in the-card: 74,058 words, 12 chapters. Free: no model calls.
+
+                                   total  narration  per 1,000  highest in
+Similes
+  like a …                            26         25       0.35  Chapter 1, Chapter 6, Chapter 3
+  …
+Repeated phrases
+  "his left eye"                       7          6       0.09  in 3 chapters · also: her left eye (1)
+  "shook her head"                     6          6       0.08  in 4 chapters · also: shook his head (2)
+  + 45 more: ./margin habits --all
+
+$ ./margin habits --show "nodded"
+$ ./margin style --detect
+What the-card mostly uses (nothing saved):
+  spelling     british          100% of listed words
+  quotes       double-straight  100% of quotation marks
+  dash         double-hyphen    100% of dashes
+  …
+$ ./margin style --detect --save
+$ ./margin style
+```
+
+Every instance is an exact span of your stored text, checked like a citation before it's shown. The house style is kept in the `margin-data` volume, one file per manuscript; `./margin style --from my-style.toml` imports one. Scene-break lines are recorded at ingest, so an index made before this version says "Re-ingest to check scene breaks".
+
 ### Your own manuscript
 
 Put it in `manuscripts/` (git-ignored, mounted read-only into the service), either as a folder with one `.md` or `.txt` file per chapter, or as one `.md`, `.txt` or `.docx` file with chapter headings (Markdown headings, or lines like `Chapter 3` or `CHAPTER III`):
@@ -182,6 +216,12 @@ While the app's publishing status is *Testing*, Google expires the sign-in after
 | `./margin timeline` / `--regenerate` | Show the story's scenes in story order, or rebuild the timeline and the bible (re-reads changed chapters; asks before spending) |
 | `./margin bible` / `--regenerate` | Show characters and places with quoted facts and the chapters they appear in, or rebuild both |
 | `./margin progress` / `--target 80000` | Words against your target, drafted and stub chapters, growth since last time (no model calls) |
+| `./margin habits` / `--all` / `--narration` | The constructions you repeat, by kind, with totals, rates and the chapters where each is densest (no model calls) |
+| `./margin habits --show "<habit>"` | One habit's per-chapter counts and every instance in its sentence |
+| `./margin style` | Your house-style rules and every mismatch, grouped by rule (no model calls) |
+| `./margin style set <rule> <value>` / `--from <file>` | Set one rule, or import a TOML style file |
+| `./margin style --detect` / `--save` | What the manuscript mostly uses, for each rule; `--save` keeps it |
+| `./margin style watch add "<phrase>"` / `remove` | List every use of a word or phrase |
 
 The same is available over HTTP at `http://localhost:8000` (`GET /status`, `POST /ingest`, `POST /ask` as server-sent events), with OpenAPI docs at `/docs`.
 
@@ -203,6 +243,7 @@ Every AI feature ships with an eval in `eval/`, run by hand (never in CI) with a
 | Ask (Claude Opus 5.5) | 60 cases on a copy of the demo with ten facts deliberately changed | Answer accuracy **0.91** · abstention **1.0** · counterfactual **1.0** · injection and prose requests **1.0** · multi-passage **0.7** · failed citations shown: **0** |
 | Timeline (extraction Claude Sonnet 5.5, placement Claude Opus 5.5, 3 runs) | Two invented novellas told out of order (28 labelled scenes: a moment told in three chapters, backstory mid-chapter, a date and a "next morning" that are one day) and the demo's eval copy (birth year changed) | Placement **1.0** · story order **1.0** · one moment on one card **0.93** · backstory apart **1.0** · counterfactual and injection: pass · failed citations shown: **0** · ≈ $0.88 for a 74,000-word book |
 | Bible (Claude Sonnet 5.5, 3 runs) | The same sets: 23 characters, 13 places, with fact phrases; a name changed in the demo copy | Character recall **1.0** · place recall **0.92** · fact recall **0.85** · false merges **0** · counterfactual name: pass · split entries **0.14** (bar 0.10, measured before a fix to how titles are compared) |
+| Habits report (no model, runs in CI) | 3 invented chapters (2,900 words, 30+ planted instances and 10+ near-misses per kind, 6 planted phrases), the demo's first 1,840 words labelled by hand, the full demo for repeated phrases, and planted house-style edits | Recall and precision **1.0** for every kind on both sets · dialogue flag **28/28** · 6/6 planted phrases, no common phrases reported · demo top-20 phrase precision **0.55** (bar 0.70) · house style exact on every rule, 0 mismatches on clean text · 74,000 words in 0.5 s |
 | Continuity check (Claude Sonnet 5.5, 3 runs) | 8 invented chapters, 21 planted contradictions | Recall **0.92** · precision **1.0** · counterfactual **0.92** · false alarms on the clean chapter: **0** · ≈ $0.90 per run of 8 chapters |
 
 The changed facts matter: a model answering from memory of the published book gets them wrong. For the timeline, Claude Sonnet 5.5 placed events as well as Opus on the short novella but gave up on the long book, leaving 99% of its events unplaced, so placement runs on Opus. For the bible, Opus scored the same as Sonnet and split slightly more, so the bible runs on Sonnet. The check eval was also run with Claude Opus 5.5 as the judge, which scored worse (recall 0.84) at twice the cost, so Sonnet is the default.
@@ -213,7 +254,10 @@ uv run python -m eval.ask --dry-run          # cases and worst-case cost, no cal
 uv run python -m eval.ask --retrieval-only   # BM25 vs kNN vs hybrid, no model calls
 uv run python -m eval.ask                    # the full eval (needs ANTHROPIC_API_KEY)
 uv run python -m eval.check --dry-run
+uv run python -m eval.habits                 # habits and house style: no model calls, seconds
 ```
+
+The habits eval's invented chapters and labels were written alongside the patterns, so their perfect scores mostly show the two agree; the hand-labelled demo excerpt is the check on real prose. Repeated phrases miss their bar: most of the false ones are ordinary expressions ("once or twice", "he could not help") that a ratio over chance within one book can't tell apart from a writer's tics.
 
 ## 🧑‍💻 Development
 

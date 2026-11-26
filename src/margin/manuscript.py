@@ -30,6 +30,9 @@ class Chapter:
     number: int
     title: str
     paragraphs: list[str] = field(default_factory=list)
+    # Scene-break marker lines, as (the paragraph number they follow, the line), spec 0007.
+    # They are not paragraphs: Ask and Check never see them.
+    scene_breaks: list[tuple[int, str]] = field(default_factory=list)
 
     @property
     def words(self) -> int:
@@ -88,7 +91,12 @@ def _docx_lines(path: Path) -> list[str]:
 
 
 def _paragraphs(lines: list[str]) -> list[str]:
-    """Blank-line separated paragraphs, with hard-wrapped lines joined. Scene breaks are skipped.
+    return _parse(lines)[0]
+
+
+def _parse(lines: list[str]) -> tuple[list[str], list[tuple[int, str]]]:
+    """Blank-line separated paragraphs, with hard-wrapped lines joined, and the scene-break
+    lines between them (skipped as paragraphs, recorded with the paragraph they follow).
 
     Text with no blank lines between its lines (one paragraph per line, a common export)
     is read as one paragraph per line.
@@ -97,19 +105,28 @@ def _paragraphs(lines: list[str]) -> list[str]:
     first = next((i for i, line in enumerate(lines) if line.strip()), 0)
     last = max((i for i, line in enumerate(lines) if line.strip()), default=0)
     if len(text_lines) > 1 and all(line.strip() for line in lines[first : last + 1]):
-        return [t.strip() for t in text_lines if not SCENE_BREAK.match(t)]
+        blocks = [t.strip() for t in text_lines]
+    else:
+        blocks, current = [], []
+        for line in [*lines, ""]:
+            if line.strip():
+                current.append(line.strip())
+            elif current:
+                blocks.append(" ".join(current))
+                current = []
     paragraphs: list[str] = []
-    current: list[str] = []
-    for line in [*lines, ""]:
-        if line.strip():
-            current.append(line.strip())
-            continue
-        if current:
-            text = " ".join(current)
-            if not SCENE_BREAK.match(text):
-                paragraphs.append(text)
-            current = []
-    return paragraphs
+    breaks: list[tuple[int, str]] = []
+    for text in blocks:
+        if SCENE_BREAK.match(text):
+            breaks.append((len(paragraphs), text))
+        else:
+            paragraphs.append(text)
+    return paragraphs, breaks
+
+
+def _chapter(number: int, title: str, lines: list[str]) -> Chapter:
+    paragraphs, breaks = _parse(lines)
+    return Chapter(number=number, title=title, paragraphs=paragraphs, scene_breaks=breaks)
 
 
 def _chapter_line(stripped: str) -> bool:
@@ -152,7 +169,7 @@ def _from_headings(lines: list[str]) -> list[Chapter]:
 
     def flush() -> None:
         if title is not None:
-            chapters.append(Chapter(number=0, title=title, paragraphs=_paragraphs(body)))
+            chapters.append(_chapter(0, title, body))
 
     for line in lines:
         heading = _heading(line, level)
@@ -185,7 +202,7 @@ def _from_folder(folder: Path) -> list[Chapter]:
                 if (heading := _heading(line)) is not None:
                     title, lines = heading, lines[i + 1 :]
                 break
-        chapters.append(Chapter(number=0, title=title, paragraphs=_paragraphs(lines)))
+        chapters.append(_chapter(0, title, lines))
     return chapters
 
 
@@ -205,7 +222,7 @@ def chapter_from_lines(title: str, lines: list[str]) -> Chapter:
                 title, lines = heading, lines[i + 1 :]
             break
     lines = [m.group("title") if (m := MARKDOWN_HEADING.match(x.strip())) else x for x in lines]
-    return Chapter(number=0, title=title, paragraphs=_paragraphs(lines))
+    return _chapter(0, title, lines)
 
 
 def chapters_from_tab(title: str, lines: list[str]) -> list[Chapter]:

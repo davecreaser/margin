@@ -110,3 +110,10 @@ def test_load_chapter_uses_first_heading_as_title(tmp_path: Path) -> None:
     c = ms.load_chapter(f)
     assert c.title == "The Return" and c.paragraphs == ["First.", "A scene", "Second."]
     assert ms.load_chapter(tmp_path / "missing.md").paragraphs == []
+
+
+def test_scene_breaks_are_recorded_not_kept_as_paragraphs() -> None:
+    lines = ["One.", "", "* * *", "", "Two.", "", "***", "", "Three."]
+    c = ms.chapter_from_lines("Chapter 1", lines)
+    assert c.paragraphs == ["One.", "Two.", "Three."]
+    assert c.scene_breaks == [(1, "* * *"), (2, "***")]

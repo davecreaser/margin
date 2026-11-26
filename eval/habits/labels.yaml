@@ -1,0 +1,69 @@
+# Gold labels for the habits eval (spec 0007). The labels are written into the texts as
+# [[K:matched words]], made from the text before the tool's output was seen. A "d" after the
+# kind ([[Cd:just]]) marks an instance inside dialogue, in the files where the dialogue flag is
+# graded (the demo excerpt and the adversarial file).
+#
+# Every use of a listed word that fits the guide is labelled; every other use is a near-miss
+# that the tool must not report.
+kinds:
+  S:
+    kind: similes
+    guide: >-
+      "like a/an" making a comparison, and "as <word> as" making a comparison. Not "like" as a
+      verb ("I'd like a word", "Would you like a cup"), and not the grammatical "as soon as",
+      "as well as", "as far as", "as much as", "as long as".
+  A:
+    kind: as_if
+    guide: >-
+      Every "as if" and "as though". "Though" alone and "even though" are not.
+  G:
+    kind: gestures
+    guide: >-
+      A verb form of a listed gesture (shrug, nod, sigh, smile, grin, frown, wince, roll eyes,
+      raise an eyebrow, bite lip, jaw tightening or clenching, running a hand through hair,
+      letting out a breath one didn't know one was holding, heart pounding or racing). Not the
+      noun ("a curt nod", "her smile", "with a sigh"). Label the verb, or the whole listed
+      phrase for the phrase gestures.
+  F:
+    kind: filter
+    guide: >-
+      A verb form of feel, see, hear, notice, realise/realize, seem, watch or wonder. Not the
+      noun or adjective ("a felt hat", "the saw", "his watch", "the notice").
+  C:
+    kind: crutch
+    guide: >-
+      Every "just", "really", "very", "suddenly", "somehow" and "actually" used as an adverb.
+      Not the adjective ("a just man", "the very man", "the very idea").
+  O:
+    kind: openers
+    guide: >-
+      A run of three or more consecutive sentences in one paragraph that start with the same
+      word: label the first word of the run's first sentence. An "-ing" participle that opens a
+      sentence and is followed by a comma within the clause ("Turning to the door, she ...").
+      Not "Nothing", "Morning", "Evening", "Something", "During" and other -ing words that are
+      not participles.
+files:
+  - invented/01-the-quay.md
+  - invented/02-the-inquest.md
+  - invented/03-the-alder.md
+  - demo-excerpt.md
+  - adversarial.md
+
+# Six repeated phrases planted across the invented chapters, and phrases that are repeated
+# there but must never be reported (function words, or a character's name).
+planted_phrases:
+  - far end of the quay
+  - thin grey light
+  - salt in the air
+  - smell of tar
+  - her jaw tightened
+  - lantern on the hook
+must_not_report:
+  - at the same time
+  - in front of the
+  - mr ashby said
+
+# The spelling counterfactual: spelling.md holds {british|american} pairs. Each copy is
+# graded under both settings. "practise|practice" and "the Mercer Center" must never be
+# reported.
+spelling_ambiguous: [practise, practice]

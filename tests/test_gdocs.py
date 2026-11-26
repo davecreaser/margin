@@ -365,5 +365,5 @@ def test_a_tab_with_only_its_heading_stays_as_an_empty_chapter(tmp_path: Path) -
     )
     index, emb = FakeIndex(), CountingEmbedder()
     r = _ingest(FakeDocs(doc), index, emb, tmp_path, ["Notes*"])
-    assert r.chapters[-1] == {"number": 5, "title": "Chapter 9", "words": 0}
+    assert r.chapters[-1] == {"number": 5, "title": "Chapter 9", "words": 0, "scene_breaks": []}
     assert not any("nothing is written" in t for t in emb.embedded)  # no passage for it

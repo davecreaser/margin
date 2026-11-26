@@ -20,6 +20,7 @@
       <button role="tab" id="tab-check" aria-controls="view-check" aria-selected="false">Check a chapter</button>
       <button role="tab" id="tab-timeline" aria-controls="view-timeline" aria-selected="false">Timeline</button>
       <button role="tab" id="tab-bible" aria-controls="view-bible" aria-selected="false">Bible</button>
+      <button role="tab" id="tab-habits" aria-controls="view-habits" aria-selected="false">Habits</button>
       <button role="tab" id="tab-progress" aria-controls="view-progress" aria-selected="false">Progress</button>
       <button role="tab" id="tab-manuscript" aria-controls="view-manuscript" aria-selected="false">Manuscript</button>
     </nav>
@@ -116,6 +117,35 @@
         <input id="bible-filter" type="search" placeholder="Filter: a name, a trade…" autocomplete="off">
       </div>
       <div id="bible-body" class="bible" aria-live="polite"></div>
+    </section>
+
+    <!-- Habits (spec 0007) -->
+    <section class="view" id="view-habits" role="tabpanel" aria-labelledby="tab-habits" hidden>
+      <div class="card">
+        <div class="row spread">
+          <div>
+            <div class="panel-kicker" id="habits-name"></div>
+            <p class="hint" id="habits-meta"></p>
+          </div>
+          <label class="toggle"><input type="checkbox" id="habits-narration"> Narration only</label>
+        </div>
+      </div>
+
+      <h2>Habits</h2>
+      <div id="habits-body" aria-live="polite"></div>
+
+      <h2>House style</h2>
+      <div class="card">
+        <form id="style-form" class="style-form">
+          <div class="style-grid" id="style-fields"></div>
+          <div class="row">
+            <button type="button" class="secondary" id="style-detect">Start from my manuscript</button>
+            <button type="submit">Save</button>
+            <span class="hint" id="style-saved" aria-live="polite"></span>
+          </div>
+        </form>
+      </div>
+      <div id="style-body" aria-live="polite"></div>
     </section>
 
     <!-- Progress -->
