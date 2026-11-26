@@ -251,6 +251,21 @@ def get_timeline() -> Any:
     }
 
 
+@app.get("/bible")
+def get_bible() -> Any:
+    """The saved bible (or null), and how many chapters changed since it was made."""
+    manuscript, chapters, _ = _manuscript()
+    saved = timeline_mod.load(settings().data_dir, manuscript)
+    return {
+        "manuscript": manuscript,
+        "bible": saved["bible"] if saved else None,
+        "made_at": saved["made_at"] if saved else None,
+        "models": saved["models"] if saved else None,
+        "cost": saved["cost"] if saved else None,
+        "changed": timeline_mod.changed_since(saved, chapters) if saved else None,
+    }
+
+
 @app.post("/timeline/estimate")
 def timeline_estimate() -> Any:
     _, chapters, _ = _manuscript()
